@@ -1,0 +1,54 @@
+/* src/index.css */
+/* src/index.css */
+body {
+    background-color: #f8f9fa;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Animations */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* Global Focus Styles - Đổi sang màu Xanh BAV (#1a237e) */
+input:focus, select:focus, textarea:focus {
+    border-color: #1a237e !important;
+    box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.15) !important;
+    outline: none;
+}
+
+/* Scrollbar đẹp */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+::-webkit-scrollbar-thumb {
+    background: #c5cae9; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #1a237e; 
+}
+input:focus {
+    border-color: #8B1538 !important;
+    box-shadow: 0 0 0 3px rgba(139, 21, 56, 0.1) !important;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 21, 56, 0.4) !important;
+}
+
+button:active:not(:disabled) {
+    transform: translateY(0);
+}

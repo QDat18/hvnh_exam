@@ -1,0 +1,23 @@
+# Ignore root-level items that are NOT frontend or backend
+/.github/
+/.vscode/
+/docs/
+/GETTING_STARTED.md
+/package.json
+/package-lock.json
+/hello.cpp
+/iReview.pptx
+/video.mp4
+/Báo cáo Dự án.mp4
+/Demo_web.mp4
+/ErrorAtLine1.mp4
+/build/
+
+# Nested ignores
+**/node_modules/
+**/dist/
+**/target/
+**/uploads/
+**/*.mp4
+**/*.pptx
+**/*.pdf

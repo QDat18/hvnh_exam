@@ -1,0 +1,627 @@
+/*
+ * LoginPage.css — Phiên bản cải tiến
+ *
+ * THAY ĐỔI CHÍNH:
+ * ① Perf   : will-change trên các phần tử animate để trình duyệt tạo composite layer
+ * ② Perf   : prefers-reduced-motion — tắt animation cho người dùng nhạy cảm với chuyển động
+ * ③ Contrast: màu text #94a3b8 → #64748b (đạt AA 4.5:1 trên nền trắng)
+ * ④ CSS var : tokens màu dùng chung cho dễ maintain
+ * ⑤ Responsive: thêm breakpoint 480px cho màn hình rất nhỏ
+ * ⑥ A11y   : focus-visible ring rõ ràng trên tất cả interactive elements
+ * ⑦ UX     : .input-error border đỏ + .field-error text lỗi inline
+ * ⑧ UX     : .sr-only utility class (screen reader only)
+ * ⑨ Image  : WebP hint trong CSS comment + background-image URL query param
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+/* ④ CSS Custom Properties — dễ thay đổi theme */
+:root {
+    --clr-primary:    #0f172a;    /* Nền nút chính */
+    --clr-primary-h:  #1e293b;    /* Hover nút chính */
+    --clr-accent:     #2563eb;    /* Xanh dương nhấn */
+    --clr-accent-light: #eff6ff;
+    --clr-gold:       #f59e0b;
+    --clr-error:      #dc2626;
+    --clr-error-bg:   #fef2f2;
+    --clr-success:    #16a34a;
+
+    /* ③ Text tối thiểu đạt WCAG AA (4.5:1 trên nền trắng) */
+    --clr-text-primary:  #0f172a;  /* Tiêu đề  — ratio ~16:1 */
+    --clr-text-body:     #334155;  /* Body text — ratio ~9:1  */
+    --clr-text-muted:    #64748b;  /* Muted     — ratio ~5:1  */
+    --clr-text-disabled: #94a3b8;  /* Disabled  — chỉ dùng khi có context thêm */
+
+    --radius-card:  20px;
+    --radius-input: 10px;
+    --shadow-card:  0 25px 50px -12px rgba(15, 23, 42, 0.15);
+    --transition-fast: 0.18s ease;
+}
+
+/* ⑧ Screen Reader Only — ẩn về mặt thị giác nhưng vẫn accessible */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ─────────────────────────────────────
+   WRAPPER & BACKGROUND
+───────────────────────────────────── */
+.login-page-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #f8fafc;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.bg-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.55;
+    z-index: 0;
+    /* ① will-change để không ảnh hưởng layout/paint */
+    will-change: opacity;
+}
+
+.bg-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: 0;
+    /* ① will-change: transform → GPU composite layer */
+    will-change: transform;
+    animation: floatBlob 10s infinite alternate ease-in-out;
+}
+
+.blob-blue {
+    top: -10%; left: -5%;
+    width: 40vw; height: 40vw;
+    background: rgba(30, 58, 138, 0.12);
+}
+
+.blob-gold {
+    bottom: -10%; right: -5%;
+    width: 35vw; height: 35vw;
+    background: rgba(245, 158, 11, 0.12);
+    animation-delay: -5s;
+}
+
+@keyframes floatBlob {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, 30px) scale(1.05); }
+}
+
+.relative-z { position: relative; z-index: 10; }
+
+/* ─────────────────────────────────────
+   FLOATING BADGES
+───────────────────────────────────── */
+.floating-badge {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 12px 20px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 1);
+    z-index: 5;
+    /* ① will-change: transform */
+    will-change: transform;
+    animation: floatUpDown 4s infinite ease-in-out;
+}
+
+.badge-top-left    { top: 12%;  left: 8%;   animation-delay: 0s;  }
+.badge-bottom-right{ bottom: 15%; right: 8%; animation-delay: -2s; }
+.badge-top-right   { top: 18%;  right: 10%; animation-delay: -1s; }
+
+/* Ẩn trên màn hình nhỏ hơn 1200px */
+@media (max-width: 1200px) {
+    .floating-badge { display: none; }
+}
+
+@keyframes floatUpDown {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-12px); }
+}
+
+.badge-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+.icon-blue  { background: var(--clr-accent-light); color: var(--clr-accent); }
+.icon-gold  { background: #fffbeb;  color: var(--clr-gold); }
+.icon-green { background: #ecfdf5;  color: var(--clr-success); }
+
+.badge-text { display: flex; flex-direction: column; }
+.badge-text strong { font-size: 0.93rem; color: var(--clr-text-primary); font-weight: 800; }
+/* ③ span text đạt tương phản: #64748b trên nền trắng ≈ 5.1:1 */
+.badge-text span    { font-size: 0.75rem; color: var(--clr-text-muted); font-weight: 500; }
+
+/* ─────────────────────────────────────
+   CARD CHÍNH
+───────────────────────────────────── */
+.login-card-centered {
+    display: flex;
+    width: 1000px;
+    max-width: 100%;
+    min-height: 560px;
+    background: #ffffff;
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    animation: fadeScale 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeScale {
+    from { opacity: 0; transform: scale(0.96) translateY(16px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* ─────────────────────────────────────
+   CỘT TRÁI: ẢNH
+   ⑨ WebP hint: thêm &fm=webp vào URL Unsplash để trả về WebP
+───────────────────────────────────── */
+.login-image-side {
+    width: 50%;
+    /* ⑨ Ưu tiên WebP qua query param Unsplash */
+    background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=75&fm=webp');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.image-overlay {
+    background: linear-gradient(to top, rgba(10, 15, 30, 0.95) 0%, rgba(15, 23, 42, 0) 80%);
+    width: 100%;
+    padding: 60px 40px 40px;
+    box-sizing: border-box;
+}
+
+.glass-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    border-radius: 20px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: 0.03em;
+}
+
+.overlay-content h2 {
+    color: #ffffff;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 10px;
+    line-height: 1.3;
+}
+
+.overlay-content p {
+    color: #cbd5e1;
+    font-size: 0.92rem;
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* ─────────────────────────────────────
+   CỘT PHẢI: FORM
+───────────────────────────────────── */
+.login-form-side {
+    width: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 44px 40px;
+    box-sizing: border-box;
+    background: #ffffff;
+}
+
+.form-inner { width: 100%; max-width: 340px; }
+
+.header-text {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.bav-logo-mini {
+    height: 58px;
+    width: auto;
+    margin-bottom: 14px;
+    object-fit: contain;
+    /* Tránh layout shift khi ảnh load */
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ⑦ h1 ngắn gọn — tên hệ thống */
+.header-text h1 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--clr-text-primary);
+    margin: 0 0 4px;
+    line-height: 1.2;
+}
+
+.greeting-text {
+    font-size: 0.95rem;
+    color: var(--clr-text-body);
+    margin: 0 0 4px;
+    font-weight: 600;
+}
+
+.subtitle-text {
+    font-size: 0.875rem;
+    /* ③ #64748b thay vì #94a3b8 cũ — đạt WCAG AA */
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ─────────────────────────────────────
+   FORM ELEMENTS
+───────────────────────────────────── */
+.login-form-element {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.form-group-custom {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 6px;
+}
+
+.form-group-custom label {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--clr-text-body);
+    display: block;
+}
+
+.label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.label-row label { margin: 0; }
+
+.forgot-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--clr-accent);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+.forgot-link:hover  { color: #1d4ed8; text-decoration: underline; }
+/* ⑥ Focus visible ring */
+.forgot-link:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+/* Input wrapper */
+.input-box {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.icon-left {
+    position: absolute;
+    left: 13px;
+    color: #94a3b8;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.input-box input {
+    width: 100%;
+    padding: 11px 13px 11px 40px;
+    font-size: 0.92rem;
+    color: var(--clr-text-primary);
+    background-color: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--radius-input);
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+    font-family: inherit;
+    box-sizing: border-box;
+    /* ① will-change: box-shadow — GPU composite cho focus ring */
+    will-change: box-shadow;
+}
+
+.input-box input:hover:not(:disabled) {
+    border-color: #cbd5e1;
+    background-color: #f1f5f9;
+}
+
+.input-box input:focus {
+    background-color: #ffffff;
+    border-color: var(--clr-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.input-box input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f1f5f9;
+}
+
+/* ⑥ Focus visible ring trên input — quan trọng cho keyboard nav */
+.input-box input:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 1px;
+}
+
+/* ⑦ Trạng thái lỗi */
+.input-box.input-error input {
+    border-color: var(--clr-error);
+    background-color: var(--clr-error-bg);
+}
+.input-box.input-error input:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+    border-color: var(--clr-error);
+}
+
+/* ⑦ Text lỗi inline */
+.field-error {
+    font-size: 0.78rem;
+    color: var(--clr-error);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: errorSlide 0.2s ease-out;
+}
+
+@keyframes errorSlide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.btn-eye {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+.btn-eye:hover { color: var(--clr-text-body); background: #f1f5f9; }
+/* ⑥ Focus ring */
+.btn-eye:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 1px;
+}
+
+/* ─────────────────────────────────────
+   BUTTONS
+───────────────────────────────────── */
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 0.97rem;
+    font-weight: 700;
+    color: #ffffff;
+    background-color: var(--clr-primary);
+    border: none;
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    margin-top: 4px;
+    letter-spacing: 0.01em;
+    will-change: transform, box-shadow;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--clr-primary-h);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.btn-primary:disabled {
+    opacity: 0.68;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ⑥ Focus visible ring nút */
+.btn-primary:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 2px;
+}
+
+/* Divider */
+.divider-row {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0 16px;
+}
+.divider-row::before,
+.divider-row::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid #e2e8f0;
+}
+.divider-row span {
+    padding: 0 12px;
+    /* ③ #64748b đạt AA */
+    color: var(--clr-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.btn-google {
+    width: 100%;
+    padding: 11px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--clr-text-body);
+    background-color: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+    box-sizing: border-box;
+}
+
+.btn-google:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.btn-google:disabled { opacity: 0.68; cursor: not-allowed; }
+
+.btn-google:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────
+   FOOTER
+───────────────────────────────────── */
+.bottom-text {
+    margin-top: 28px;
+    text-align: center;
+    /* ③ #64748b thay #94a3b8 cũ */
+    font-size: 0.78rem;
+    color: var(--clr-text-muted);
+    line-height: 1.65;
+}
+.bottom-text p { margin: 0 0 8px; }
+.bottom-text strong { color: var(--clr-text-body); }
+
+.legal-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+.legal-links a {
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+.legal-links a:hover { color: var(--clr-accent); text-decoration: underline; }
+.legal-links a:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* ─────────────────────────────────────
+   UTILITIES
+───────────────────────────────────── */
+.icon-spin {
+    animation: spin 0.9s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* ─────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────── */
+@media (max-width: 850px) {
+    .login-card-centered {
+        flex-direction: column;
+        width: 100%;
+        max-width: 460px;
+        min-height: auto;
+    }
+    .login-image-side {
+        width: 100%;
+        height: 190px;
+    }
+    .image-overlay { padding: 20px 24px; }
+    .overlay-content h2 { font-size: 1.3rem; }
+    .login-form-side {
+        width: 100%;
+        padding: 32px 28px;
+    }
+}
+
+/* ⑤ Breakpoint bổ sung cho màn hình rất nhỏ (< 420px) */
+@media (max-width: 420px) {
+    .login-page-wrapper { padding: 12px; }
+    .login-form-side { padding: 24px 20px; }
+    .login-image-side { height: 150px; }
+    .btn-primary,
+    .btn-google { font-size: 0.9rem; padding: 11px; }
+    .header-text h1 { font-size: 1.25rem; }
+}
+
+/* ② prefers-reduced-motion — tôn trọng cài đặt hệ thống */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+    .input-box input,
+    .btn-primary,
+    .btn-google {
+        border: 2px solid ButtonText;
+    }
+}
