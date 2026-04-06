@@ -39,7 +39,8 @@ const MyClasses: React.FC = () => {
         setJoinMessage(null);
         try {
             const res = await courseClassService.joinClass(joinCode.trim());
-            setJoinMessage({ type: 'success', text: res.data.message || 'Tham gia lớp thành công!' });
+            const data = res.data as any;
+            setJoinMessage({ type: 'success', text: data.message || 'Tham gia lớp thành công!' });
             setJoinCode('');
             fetchClasses();
             setTimeout(() => { setShowJoinForm(false); setJoinMessage(null); }, 3000);

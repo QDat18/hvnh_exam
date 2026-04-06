@@ -20,8 +20,9 @@ const JoinCoursePage: React.FC = () => {
         try {
             // Gọi API bằng mã in hoa cho chuẩn
             const res = await courseClassService.joinClass(joinCode.toUpperCase().trim());
-            toast.success("🎉 " + res.data.message);
-            setSuccessMessage(res.data.message);
+            const data = res.data as any;
+            toast.success("🎉 " + data.message);
+            setSuccessMessage(data.message);
             setJoinCode('');
         } catch (error: any) {
             toast.error(error.response?.data?.message || "❌ Mã tham gia không đúng hoặc lớp đã đầy!");

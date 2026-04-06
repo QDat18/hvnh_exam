@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { studyHubApi } from '../../services/studyHubApi';
 import {
-    BarChart3, TrendingUp, BookOpen, Zap, Target, Clock,
+    BarChart3, TrendingUp, BookOpen, Zap, Target,
     AlertCircle, CheckCircle2, Calendar, Flame
 } from 'lucide-react';
 

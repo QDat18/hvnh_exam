@@ -44,7 +44,7 @@ const ExamTakingPage: React.FC = () => {
         const fetchRealExamData = async () => {
             try {
                 const res = await studyHubApi.getAttemptDetails(attemptId!);
-                const data = res.data;
+                const data = res.data as any;
 
                 // 🔥 ĐÃ FIX: Lọc sạch các phần tử null bị kẹt trong Database
                 const validQuestions = data.questions ? data.questions.filter((q: any) => q !== null && q !== undefined) : [];
@@ -523,7 +523,7 @@ const ExamTakingPage: React.FC = () => {
                         </div>
 
                         <div className="d-flex flex-wrap gap-2 overflow-auto custom-scrollbar p-1" style={{ maxHeight: '160px' }}>
-                            {Array.from({ length: examData?.totalQuestions || 0 }).map((_, idx) => {
+                            {Array.from({ length: examData?.totalQuestions || 0 }).map((__, idx) => {
                                 const qNum = idx + 1;
                                 const isAnswered = !!answers[qNum];
                                 return (
@@ -548,7 +548,7 @@ const ExamTakingPage: React.FC = () => {
                     <div className="p-3 overflow-auto flex-grow-1 custom-scrollbar bg-white">
                         {examData?.creationMode === 'PDF' ? (
                             <div className="d-flex flex-column gap-3 pb-4">
-                                {Array.from({ length: examData?.totalQuestions || 0 }).map((_, idx) => {
+                                {Array.from({ length: examData?.totalQuestions || 0 }).map((__, idx) => {
                                     const qNum = idx + 1;
                                     const options = ['A', 'B', 'C', 'D'];
                                     const selectedOpt = answers[qNum];

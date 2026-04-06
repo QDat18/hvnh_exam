@@ -157,12 +157,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                 const historyRes = await studyHubApi.getPracticeHistory();
                 if (!mountedRef.current) return;
 
-                const fullHistory = historyRes.data?.sessions || historyRes.data || [];
+                const data = historyRes.data as any;
+                const fullHistory = data?.sessions || data || [];
+                
                 const avgScoreValue = fullHistory.length > 0
                     ? (fullHistory.reduce((acc: number, h: any) => acc + (h.score || 0), 0) / fullHistory.length)
                     : 0;
 
-                setStats(prev => ({ ...prev, avgScore: avgScoreValue }));
+                setStats(prev => ({ ...prev, avgScore: avgScoreValue, practiceHistory: fullHistory }));
 
                 const mappedActivities = fullHistory.slice(0, 5).map((h: any) => {
                     const isHighScorer = (h.score || 0) >= 8;
@@ -189,7 +191,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
         return () => { mountedRef.current = false; };
     }, [selectedSubjectId]);
 
-    const getIdxColor = useCallback((_idx: number) => ['#6366f1', '#0ea5e9', '#06b6d4', '#10b981'][_idx % 4], []);
+    const getIdxColor = useCallback((_: number) => ['#6366f1', '#0ea5e9', '#06b6d4', '#10b981'][_ % 4], []);
 
     const renderDashboardOverview = () => (
         <div className="animation-fade-in relative overflow-x-hidden">
@@ -283,14 +285,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                                             </div>
                                         </div>
                                     ))
-                                ) : activities.length > 0 ? (
-                                    activities.slice(0, 5).map((act: any) => (
-                                        <div key={act.id} className="activity-item-navy mb-4">
-                                            <div className="act-marker-navy" style={{ backgroundColor: act.color }}>{act.icon}</div>
+                                ) : stats.practiceHistory.length > 0 ? (
+                                    stats.practiceHistory.slice(0, 5).map((session: any, _) => (
+                                        <div key={session.id || _} className="activity-item-navy mb-4">
+                                            <div className="act-marker-navy" style={{ backgroundColor: '#6366f1' }}><Trophy size={14} /></div>
                                             <div className="act-content-v4">
-                                                <div className="act-title text-navy">{act.title}</div>
+                                                <div className="act-title text-navy">Luyện tập: {session.subjectName || 'Môn học'}</div>
                                                 <div className="act-meta text-slate-400">
-                                                    <span>{act.time}</span><span className="dot mx-2"></span><span>{act.subject}</span>
+                                                    <span>{session.endTime ? new Date(session.endTime).toLocaleDateString('vi-VN') : 'Đang làm'}</span>
+                                                    <span className="dot mx-2"></span>
+                                                    <span>Đúng: {session.correctAnswers || 0}/{session.numQuestions || 0}</span>
                                                 </div>
                                             </div>
                                         </div>

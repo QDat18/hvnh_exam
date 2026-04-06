@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { studyHubApi } from '../../services/studyHubApi';
-import { BarChart3, TrendingUp, AlertCircle, CheckCircle2, Brain, Target, RefreshCw, Printer } from 'lucide-react';
+import { BarChart3, AlertCircle, CheckCircle2, Brain, Target, RefreshCw, Printer } from 'lucide-react';
 
 interface CompetencyData {
     studentName: string;
@@ -33,7 +33,7 @@ const CompetencyAnalysisPage: React.FC = () => {
         try {
             setLoading(true);
             const response = await studyHubApi.getCompetencyAnalysis();
-            setData(response.data);
+            setData(response.data as any);
             setError(null);
         } catch (err: any) {
             setError(err.message || 'Không thể tải dữ liệu');

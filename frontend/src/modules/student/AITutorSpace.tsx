@@ -82,8 +82,9 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
         ]);
 
         try {
-            const res = await studyHubApi.getFlashcards(undefined, subjectId);
-            setFlashcards(res.data?.flashcards || []);
+            const res = await studyHubApi.getFlashcardsBySubject(subjectId);
+            const cards = res.data.flashcards || [];
+            setFlashcards(cards);
         } catch (err) {
             console.error(err);
         }

@@ -12,6 +12,8 @@ export interface StudentDocument {
     fileSizeMb: number;
     processingStatus: ProcessingStatus;
     uploadedAt: string;
+    processedCount?: number;
+    flashcardCount?: number;
 }
 
 export interface Flashcard {

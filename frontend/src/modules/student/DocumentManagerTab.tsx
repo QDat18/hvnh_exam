@@ -661,12 +661,10 @@ const DocumentManagerTab: React.FC<DocumentManagerTabProps> = ({ subjectId }) =>
                             </div>
 
                             <div>
-                                {filteredDocs.map((doc, idx) => (
+                                {filteredDocs.map((doc) => (
                                     <DocumentRow
                                         key={doc.studentDocId}
                                         doc={doc}
-                                        idx={idx}
-                                        isLast={idx === filteredDocs.length - 1}
                                         onNavigate={navigate}
                                         onDelete={handleDeleteSingle}
                                         formatDate={formatDate}

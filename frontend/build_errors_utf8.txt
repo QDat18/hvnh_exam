@@ -1,0 +1,85 @@
+﻿node_modules/@types/react/index.d.ts(32,14): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(32,23): error TS1005: ')' expected.
+node_modules/@types/react/index.d.ts(33,18): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(33,27): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(33,54): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(33,61): error TS1136: Property assignment expected.
+node_modules/@types/react/index.d.ts(33,87): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(33,98): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(34,22): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(34,31): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(35,25): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(35,34): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(35,55): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(35,60): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(36,31): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(36,37): error TS1435: Unknown keyword or identifier. Did you mean 'this'?
+node_modules/@types/react/index.d.ts(36,41): error TS1434: Unexpected keyword or identifier.
+node_modules/@types/react/index.d.ts(36,53): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(37,18): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(38,22): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(39,27): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(39,35): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(39,50): error TS1109: Expression expected.
+node_modules/@types/react/index.d.ts(40,30): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(40,39): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(41,36): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(41,45): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(41,73): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(41,78): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(42,34): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(43,39): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(43,48): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(43,91): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(43,95): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(45,37): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(45,41): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(49,49): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(49,62): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(49,75): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(51,34): error TS1109: Expression expected.
+node_modules/@types/react/index.d.ts(52,30): error TS1110: Type expected.
+node_modules/@types/react/index.d.ts(53,26): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(54,30): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(55,36): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(55,45): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(55,71): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(55,76): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(56,34): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(57,39): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(57,48): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(57,83): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(57,87): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(59,37): error TS1005: '>' expected.
+node_modules/@types/react/index.d.ts(59,41): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(63,49): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(63,65): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(63,78): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(65,34): error TS1109: Expression expected.
+node_modules/@types/react/index.d.ts(66,30): error TS1110: Type expected.
+node_modules/@types/react/index.d.ts(67,26): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(68,33): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(68,47): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(68,94): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(70,39): error TS1005: ',' expected.
+node_modules/@types/react/index.d.ts(70,89): error TS1005: '(' expected.
+node_modules/@types/react/index.d.ts(70,90): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(71,33): error TS1128: Declaration or statement expected.
+node_modules/@types/react/index.d.ts(72,29): error TS1128: Declaration or statement expected.
+node_modules/@types/react/index.d.ts(73,26): error TS1110: Type expected.
+node_modules/@types/react/index.d.ts(74,22): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(75,18): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(76,22): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(76,74): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(76,81): error TS1136: Property assignment expected.
+node_modules/@types/react/index.d.ts(76,101): error TS1128: Declaration or statement expected.
+node_modules/@types/react/index.d.ts(76,102): error TS1109: Expression expected.
+node_modules/@types/react/index.d.ts(77,21): error TS1109: Expression expected.
+node_modules/@types/react/index.d.ts(77,33): error TS1005: ';' expected.
+node_modules/@types/react/index.d.ts(77,37): error TS1434: Unexpected keyword or identifier.
+node_modules/@types/react/index.d.ts(77,42): error TS1434: Unexpected keyword or identifier.
+node_modules/@types/react/index.d.ts(78,18): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(79,14): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(80,10): error TS1161: Unterminated regular expression literal.
+node_modules/@types/react/index.d.ts(81,5): error TS1128: Declaration or statement expected.
+node_modules/@types/react/index.d.ts(82,1): error TS1128: Declaration or statement expected.
