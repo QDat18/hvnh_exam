@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
@@ -21,12 +20,17 @@ import java.util.stream.Collectors;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-@RequiredArgsConstructor
 public class QuestionService {
 
     private final QuestionRepository questionRepository;
     private final SubjectRepository subjectRepository;
     private final ChapterRepository chapterRepository;
+
+    public QuestionService(QuestionRepository questionRepository, SubjectRepository subjectRepository, ChapterRepository chapterRepository) {
+        this.questionRepository = questionRepository;
+        this.subjectRepository = subjectRepository;
+        this.chapterRepository = chapterRepository;
+    }
 
     @Transactional
     public Question createQuestion(QuestionRequest request) {

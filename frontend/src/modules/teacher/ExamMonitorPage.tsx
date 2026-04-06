@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Users, AlertTriangle, Search, CheckCircle, Clock } from 'lucide-react';
+import { 
+  ArrowLeft, RefreshCw, Users, AlertTriangle, Search, 
+  CheckCircle, Clock, Activity 
+} from 'lucide-react';
 import { studyHubApi } from '../../services/studyHubApi';
 
 interface StudentMonitor {
@@ -65,200 +68,463 @@ const ExamMonitorPage: React.FC = () => {
   // Stats
   const countByStatus = (status: string) => data?.students.filter(s => s.status === status).length || 0;
 
-  const getStatusBadge = (status: string) => {
+  const getStatusInfo = (status: string) => {
     switch (status) {
       case 'ĐANG_THI':
-        return <span className="badge bg-primary px-3 py-2 rounded-pill fw-bold d-inline-flex align-items-center gap-1"><span className="spinner-grow spinner-grow-sm" role="status" /> Đang thi</span>;
+        return { 
+          label: 'Đang thi', 
+          color: '#22c55e', 
+          bg: 'rgba(34, 197, 94, 0.1)', 
+          glow: '0 0 15px rgba(34, 197, 94, 0.3)',
+          icon: <span className="status-dot pulsing" />
+        };
       case 'ĐÃ_NỘP':
-        return <span className="badge bg-success px-3 py-2 rounded-pill fw-bold d-inline-flex align-items-center gap-1"><CheckCircle size={14} /> Đã nộp</span>;
       case 'ĐÃ_KẾT_THÚC':
-        return <span className="badge bg-secondary px-3 py-2 rounded-pill fw-bold d-inline-flex align-items-center gap-1"><CheckCircle size={14} /> Kết thúc</span>;
+        return { 
+          label: 'Đã nộp', 
+          color: '#3b82f6', 
+          bg: 'rgba(59, 130, 246, 0.1)', 
+          glow: 'none',
+          icon: <CheckCircle size={14} />
+        };
       case 'CHƯA_THAM_GIA':
       default:
-        return <span className="badge bg-light text-dark border px-3 py-2 rounded-pill fw-bold">Chưa thi</span>;
+        return { 
+          label: 'Chưa thi', 
+          color: '#94a3b8', 
+          bg: 'rgba(148, 163, 184, 0.1)', 
+          glow: 'none',
+          icon: <Clock size={14} />
+        };
     }
   };
 
-  const formatDuration = (startTime: string | null) => {
-    if (!startTime) return '-';
-    const start = new Date(startTime).getTime();
-    const now = new Date().getTime();
-    const diffMins = Math.floor((now - start) / 60000);
-    if (diffMins < 1) return 'Vừa xong';
-    return `${diffMins} phút trước`;
+  const getAvatarColor = (name: string) => {
+    const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
+    const index = name.length % colors.length;
+    return colors[index];
   };
 
   return (
-    <div className="bg-light min-vh-100 pb-5">
+    <div className="dark-theme min-vh-100 pb-5" style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}>
       {/* HEADER */}
-      <div className="text-white py-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #0d6efd 0%, #0b5ed7 50%, #084298 100%)' }}>
-        <div className="container px-3 px-md-4" style={{ maxWidth: '1100px' }}>
-          <button onClick={() => navigate(-1)} className="btn btn-link text-white p-0 mb-3 text-decoration-none d-flex align-items-center gap-2 opacity-75" style={{ fontSize: '0.9rem' }}>
+      <div className="sticky-top py-4 shadow-sm" style={{ backgroundColor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.05)', zIndex: 1000 }}>
+        <div className="container px-3 px-md-4" style={{ maxWidth: '1200px' }}>
+          <button onClick={() => navigate(-1)} className="btn btn-link text-slate-400 p-0 mb-3 text-decoration-none d-flex align-items-center gap-2 opacity-75 hover-opacity-100 transition-all" style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
             <ArrowLeft size={16} /> Quay lại
           </button>
-          <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+          
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
-              <small className="text-white-50 text-uppercase fw-bold" style={{ letterSpacing: '2px', fontSize: '0.7rem' }}>Giám sát kỳ thi</small>
-              <h2 className="fw-bold mb-0" style={{ fontSize: 'clamp(1.2rem, 4vw, 1.8rem)' }}>
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <span className="live-indicator"></span>
+                <small className="text-uppercase fw-bold" style={{ color: '#6366f1', letterSpacing: '2px', fontSize: '0.7rem' }}>GIÁM SÁT TRỰC TUYẾN</small>
+              </div>
+              <h2 className="fw-bold mb-0" style={{ fontSize: 'clamp(1.2rem, 4vw, 1.8rem)', color: '#ffffff' }}>
                 {loading && !data ? (
-                  <span className="placeholder-glow"><span className="placeholder col-6 bg-light rounded"></span></span>
+                  <span className="placeholder-glow"><span className="placeholder col-6 bg-slate-700 rounded"></span></span>
                 ) : (
                   data?.roomName || 'Phòng thi'
                 )}
               </h2>
             </div>
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              <span className="badge bg-white bg-opacity-25 text-white px-3 py-2 rounded-pill d-flex align-items-center gap-1">
-                <Clock size={14} /> {lastRefreshed.toLocaleTimeString()}
-              </span>
+            
+            <div className="d-flex align-items-center gap-3">
+              <div className="d-none d-md-block text-end me-2">
+                <div className="text-white-50 small">Cập nhật cuối</div>
+                <div className="fw-medium" style={{ color: '#94a3b8' }}>{lastRefreshed.toLocaleTimeString()}</div>
+              </div>
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="btn btn-outline-light rounded-pill px-3 py-2 d-flex align-items-center gap-1 fw-bold"
-                style={{ fontSize: '0.85rem' }}
+                className="btn-refresh d-flex align-items-center justify-content-center"
+                title="Làm mới"
               >
-                <RefreshCw size={16} className={isRefreshing ? 'spin-animation' : ''} /> Làm mới
+                <RefreshCw size={20} className={isRefreshing ? 'spin-animation' : ''} />
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container px-3 px-md-4 mt-4" style={{ maxWidth: '1100px' }}>
-
-        {/* STATS CARDS */}
+      <div className="container px-3 px-md-4 mt-4" style={{ maxWidth: '1200px' }}>
+        
+        {/* DASHBOARD STATS */}
         {data && (
-          <div className="row g-3 mb-4">
-            <div className="col-6 col-md-3">
-              <div className="card border-0 shadow-sm rounded-4 text-center p-3">
-                <h3 className="fw-bolder text-primary mb-0">{data.totalStudents}</h3>
-                <small className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>Tổng SV</small>
+          <div className="row g-3 mb-5">
+            {[
+              { label: 'TỔNG SINH VIÊN', value: data.totalStudents, icon: <Users size={20} />, color: '#6366f1' },
+              { label: 'ĐANG LÀM BÀI', value: countByStatus('ĐANG_THI'), icon: <Activity size={20} />, color: '#22c55e', pulse: true },
+              { label: 'ĐÃ HOÀN THÀNH', value: countByStatus('ĐÃ_NỘP') + countByStatus('ĐÃ_KẾT_THÚC'), icon: <CheckCircle size={20} />, color: '#3b82f6' },
+              { label: 'VI PHẠM', value: data.students.filter(s => s.violations > 0).length, icon: <AlertTriangle size={20} />, color: '#ef4444' }
+            ].map((stat, i) => (
+              <div className="col-6 col-md-3" key={i}>
+                <div className="stats-card h-100" style={{ borderLeft: `4px solid ${stat.color}` }}>
+                  <div className="d-flex justify-content-between align-items-start mb-2">
+                    <div className="stats-icon" style={{ backgroundColor: `${stat.color}20`, color: stat.color }}>
+                      {stat.icon}
+                    </div>
+                    {stat.pulse && <span className="status-dot pulsing" style={{ backgroundColor: stat.color }}></span>}
+                  </div>
+                  <div className="stats-value">{stat.value}</div>
+                  <div className="stats-label">{stat.label}</div>
+                </div>
               </div>
-            </div>
-            <div className="col-6 col-md-3">
-              <div className="card border-0 shadow-sm rounded-4 text-center p-3 border-start border-primary border-4">
-                <h3 className="fw-bolder text-primary mb-0">{countByStatus('ĐANG_THI')}</h3>
-                <small className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>Đang thi</small>
-              </div>
-            </div>
-            <div className="col-6 col-md-3">
-              <div className="card border-0 shadow-sm rounded-4 text-center p-3 border-start border-success border-4">
-                <h3 className="fw-bolder text-success mb-0">{countByStatus('ĐÃ_NỘP') + countByStatus('ĐÃ_KẾT_THÚC')}</h3>
-                <small className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>Đã nộp</small>
-              </div>
-            </div>
-            <div className="col-6 col-md-3">
-              <div className="card border-0 shadow-sm rounded-4 text-center p-3 border-start border-warning border-4">
-                <h3 className="fw-bolder text-warning mb-0">{countByStatus('CHƯA_THAM_GIA')}</h3>
-                <small className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>Chưa thi</small>
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* SEARCH */}
-        <div className="position-relative mb-4">
-          <div className="position-absolute top-50 translate-middle-y ps-3" style={{ zIndex: 2 }}>
-            <Search size={18} className="text-muted" />
+        {/* CONTROLS */}
+        <div className="row g-3 mb-4 align-items-center">
+          <div className="col-12 col-md-6 col-lg-4">
+            <div className="search-box">
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Tìm tên hoặc mã sinh viên..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
           </div>
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo mã SV hoặc họ tên..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-control form-control-lg ps-5 rounded-4 border shadow-sm"
-            style={{ fontSize: '0.95rem' }}
-          />
+          <div className="col-12 col-md-6 col-lg-8 text-md-end">
+            <div className="filter-group d-inline-flex gap-2 p-1 rounded-3" style={{ backgroundColor: '#1e293b' }}>
+              <button className="btn-filter active">Tất cả</button>
+              <button className="btn-filter">Đang thi</button>
+              <button className="btn-filter">Vi phạm</button>
+            </div>
+          </div>
         </div>
 
-        {/* TABLE */}
+        {/* GRID VIEW */}
         {loading && !data ? (
           <div className="d-flex justify-content-center align-items-center py-5">
-            <div className="spinner-border text-primary border-4" style={{ width: '3rem', height: '3rem' }}></div>
+            <div className="loading-pulsar"></div>
           </div>
         ) : (
-          <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="bg-light text-muted" style={{ fontSize: '0.8rem' }}>
-                  <tr>
-                    <th className="ps-4 text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>#</th>
-                    <th className="text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>Mã SV</th>
-                    <th className="text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>Họ & Tên</th>
-                    <th className="text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>Trạng thái</th>
-                    <th className="text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>Thời gian bắt đầu</th>
-                    <th className="text-center text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>Vi phạm</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.length > 0 ? (
-                    filteredStudents.map((student, index) => (
-                      <tr key={student.studentId}>
-                        <td className="ps-4 text-muted fw-bold">{index + 1}</td>
-                        <td>
-                          <span className="badge bg-light text-dark border fw-bold px-3 py-2 rounded-pill" style={{ fontSize: '0.85rem' }}>
-                            {student.studentCode}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="fw-bold text-dark">{student.studentName}</div>
-                          {student.attemptCount > 1 && (
-                            <small className="text-muted">Lượt thi thứ {student.attemptCount}</small>
-                          )}
-                        </td>
-                        <td>{getStatusBadge(student.status)}</td>
-                        <td>
-                          {student.startTime ? (
-                            <div>
-                              <div className="fw-medium">{new Date(student.startTime).toLocaleTimeString('vi-VN')}</div>
-                              <small className="text-muted">{formatDuration(student.startTime)}</small>
-                            </div>
-                          ) : (
-                            <span className="text-muted">-</span>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          {student.violations > 0 ? (
-                            <span className="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill fw-bold d-inline-flex align-items-center gap-1 border border-danger border-opacity-25">
-                              <AlertTriangle size={14} /> {student.violations}
-                            </span>
-                          ) : (
-                            <span className="text-muted">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="text-center py-5">
-                        <Users size={48} className="text-muted opacity-50 mb-3" />
-                        <p className="fw-bold text-dark mb-1">Không tìm thấy sinh viên nào</p>
-                        <small className="text-muted">Thử thay đổi từ khóa tìm kiếm</small>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="row g-3">
+            {filteredStudents.length > 0 ? (
+              filteredStudents.map((student) => {
+                const status = getStatusInfo(student.status);
+                return (
+                  <div className="col-12 col-sm-6 col-md-4 col-xl-3" key={student.studentId}>
+                    <div 
+                      className={`monitor-card ${student.violations > 0 ? 'border-danger' : ''} ${student.status === 'ĐANG_THI' ? 'active' : ''}`}
+                      style={{ 
+                        boxShadow: student.status === 'ĐANG_THI' ? status.glow : 'none',
+                        borderColor: student.status === 'ĐANG_THI' ? status.color : 'rgba(255,255,255,0.05)'
+                      }}
+                    >
+                      <div className="d-flex align-items-start gap-3 mb-3">
+                        <div 
+                          className="student-avatar" 
+                          style={{ backgroundColor: getAvatarColor(student.studentName) }}
+                        >
+                          {student.studentName.charAt(0)}
+                        </div>
+                        <div className="flex-grow-1 overflow-hidden">
+                          <div className="student-name text-truncate" title={student.studentName}>{student.studentName}</div>
+                          <div className="student-code">{student.studentCode}</div>
+                        </div>
+                        <div className="status-tag" style={{ backgroundColor: status.bg, color: status.color }}>
+                          {status.icon}
+                        </div>
+                      </div>
+
+                      <div className="card-metrics">
+                        <div className="metric-item">
+                          <label>Bắt đầu</label>
+                          <span>{student.startTime ? new Date(student.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                        </div>
+                        <div className="metric-item">
+                          <label>Lượt</label>
+                          <span>{student.attemptCount}</span>
+                        </div>
+                        <div className="metric-item">
+                          <label>Vi phạm</label>
+                          <span className={student.violations > 0 ? 'text-danger fw-bold' : ''}>{student.violations}</span>
+                        </div>
+                      </div>
+
+                      {student.violations > 0 && (
+                        <div className="violation-alert mt-3 animate-head-shake">
+                          <AlertTriangle size={14} /> Cảnh báo bất thường
+                        </div>
+                      )}
+
+                      {student.status === 'ĐANG_THI' && (
+                        <div className="card-progress mt-3">
+                          <div className="progress-bar-animated" style={{ backgroundColor: status.color }}></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="col-12 text-center py-5">
+                <div className="empty-state">
+                  <Users size={64} className="mb-3 opacity-20" />
+                  <h4>Không tìm thấy dữ liệu</h4>
+                  <p className="text-slate-400">Không có sinh viên nào khớp với tiêu chí tìm kiếm</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Auto-refresh note */}
-        <div className="text-center mt-3">
-          <small className="text-muted d-flex align-items-center justify-content-center gap-1">
-            <RefreshCw size={12} /> Tự động cập nhật mỗi 10 giây
+        {/* FOOTER NOTE */}
+        <div className="text-center mt-5 opacity-50">
+          <small className="d-flex align-items-center justify-content-center gap-2">
+             <span className="pulsing" style={{ width: 8, height: 8, backgroundColor: '#22c55e', borderRadius: '50%' }}></span>
+             Hệ thường tự động cập nhật mỗi 10 giây
           </small>
         </div>
       </div>
 
-      {/* Spin animation CSS */}
       <style>{`
+        .dark-theme {
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        
+        .stats-card {
+          background-color: #1e293b;
+          border-radius: 16px;
+          padding: 1.5rem;
+          transition: transform 0.2s;
+        }
+        .stats-card:hover {
+          transform: translateY(-5px);
+        }
+        .stats-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .stats-value {
+          font-size: 1.75rem;
+          font-weight: 800;
+          margin-top: 0.5rem;
+        }
+        .stats-label {
+          color: #94a3b8;
+          font-size: 0.75rem;
+          font-weight: 600;
+          letter-spacing: 1px;
+        }
+
+        .search-box {
+          position: relative;
+          background-color: #1e293b;
+          border-radius: 12px;
+          padding: 2px;
+        }
+        .search-icon {
+          position: absolute;
+          left: 1rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #64748b;
+        }
+        .search-input {
+          width: 100%;
+          background: transparent;
+          border: none;
+          color: white;
+          padding: 0.75rem 1rem 0.75rem 3rem;
+          outline: none;
+        }
+
+        .btn-filter {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          padding: 0.5rem 1rem;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.85rem;
+        }
+        .btn-filter.active {
+          background-color: #334155;
+          color: white;
+        }
+
+        .monitor-card {
+          background-color: #1e293b;
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 16px;
+          padding: 1.25rem;
+          height: 100%;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        .monitor-card:hover {
+          transform: scale(1.02);
+          background-color: #243144;
+        }
+        .monitor-card.active {
+          background-color: #1a2538;
+        }
+
+        .student-avatar {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          color: white;
+          font-size: 1.2rem;
+          box-shadow: inset 0 -4px 0 rgba(0,0,0,0.1);
+        }
+
+        .student-name {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: #f8fafc;
+        }
+        .student-code {
+          color: #64748b;
+          font-size: 0.8rem;
+        }
+
+        .status-tag {
+          padding: 4px 8px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .card-metrics {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .metric-item {
+          display: flex;
+          flex-direction: column;
+        }
+        .metric-item label {
+          font-size: 0.65rem;
+          color: #64748b;
+          text-transform: uppercase;
+          font-weight: 700;
+          margin-bottom: 2px;
+        }
+        .metric-item span {
+          font-size: 0.85rem;
+          font-weight: 600;
+        }
+
+        .violation-alert {
+          background-color: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          padding: 8px;
+          border-radius: 8px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .card-progress {
+          height: 3px;
+          background-color: rgba(255,255,255,0.05);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        .progress-bar-animated {
+          height: 100%;
+          width: 100%;
+          animation: progress-slide 2s linear infinite;
+          transform-origin: left;
+        }
+
+        .btn-refresh {
+          width: 44px;
+          height: 44px;
+          background-color: #1e293b;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          color: #94a3b8;
+          transition: all 0.2s;
+        }
+        .btn-refresh:hover:not(:disabled) {
+          background-color: #334155;
+          color: white;
+          transform: rotate(30deg);
+        }
+
         .spin-animation {
           animation: spin 1s linear infinite;
         }
+
+        .pulsing {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .live-indicator {
+           width: 10px;
+           height: 10px;
+           background-color: #ef4444;
+           border-radius: 50%;
+           display: inline-block;
+           box-shadow: 0 0 0 rgba(239, 68, 68, 0.4);
+           animation: live-blink 1.5s infinite;
+        }
+
+        @keyframes live-blink {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        @keyframes progress-slide {
+          0% { transform: scaleX(0); opacity: 0.1; }
+          50% { transform: scaleX(0.5); opacity: 0.5; }
+          100% { transform: scaleX(1); opacity: 0.1; }
+        }
+
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: .5; transform: scale(1.1); }
+        }
+
+        .loading-pulsar {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: #6366f1;
+          animation: pulsar 1s infinite ease-out;
+        }
+
+        @keyframes pulsar {
+          0% { transform: scale(0.1); opacity: 1; }
+          100% { transform: scale(1.2); opacity: 0; }
         }
       `}</style>
     </div>

@@ -21,6 +21,10 @@ public interface CourseClassStudentRepository extends JpaRepository<CourseClassS
     // Kiểm tra xem sinh viên đã học môn này ở bất kỳ lớp nào chưa
     boolean existsByStudent_IdAndCourseClass_Subject_Id(UUID studentId, UUID subjectId);
 
-    // Lấy danh sách các lớp mà một sinh viên đã tham gia
-    List<CourseClassStudent> findByStudent_Id(UUID studentId);
+    // Lấy danh sách các lớp mà một sinh viên đã tham gia, JOIN FETCH luôn CourseClass và Subject
+    @org.springframework.data.jpa.repository.Query("SELECT ccs FROM CourseClassStudent ccs " +
+           "JOIN FETCH ccs.courseClass cc " +
+           "JOIN FETCH cc.subject " +
+           "WHERE ccs.student.id = :studentId")
+    List<CourseClassStudent> findByStudent_Id(@org.springframework.data.repository.query.Param("studentId") UUID studentId);
 }

@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
@@ -15,18 +14,20 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class ExcelImportService {
 
     private final QuestionService questionService;
 
+    public ExcelImportService(QuestionService questionService) {
+        this.questionService = questionService;
+    }
+
     public void importFromExcel(MultipartFile file, UUID subjectId, UUID chapterId) throws Exception {
         Workbook workbook = new XSSFWorkbook(file.getInputStream());
-        Sheet sheet = workbook.getSheetAt(0); // Lấy sheet đầu tiên
+        Sheet sheet = workbook.getSheetAt(0);
 
         List<String> errors = new ArrayList<>();
 
-        // Bắt đầu từ dòng 1 (bỏ qua tiêu đề ở dòng 0)
         for (int i = 1; i <= sheet.getLastRowNum(); i++) {
             Row row = sheet.getRow(i);
             if (row == null || row.getCell(0) == null) continue;
@@ -36,19 +37,15 @@ public class ExcelImportService {
                 dto.setSubjectId(subjectId);
                 dto.setChapterId(chapterId);
                 
-                // 1. Đọc nội dung câu hỏi
                 dto.setQuestionText(getCellValueAsString(row.getCell(0)));
 
-                // 2. Đọc độ khó và mức Bloom
                 String diffStr = getCellValueAsString(row.getCell(1)).toUpperCase();
                 String bloomStr = getCellValueAsString(row.getCell(2)).toUpperCase();
                 dto.setDifficultyLevel(DifficultyLevel.valueOf(diffStr));
                 dto.setBloomLevel(BloomLevel.valueOf(bloomStr));
 
-                // 3. Đọc đáp án đúng (Label: A, B, C, D...)
                 String correctLabels = getCellValueAsString(row.getCell(7)).toUpperCase();
 
-                // 4. Duyệt các cột đáp án (từ cột 3 đến cột 6)
                 List<AnswerRequest> answers = new ArrayList<>();
                 for (int j = 0; j < 4; j++) {
                     String cellContent = getCellValueAsString(row.getCell(3 + j));
@@ -58,7 +55,6 @@ public class ExcelImportService {
                     AnswerRequest ans = new AnswerRequest();
                     ans.setAnswerText(cellContent);
                     ans.setAnswerLabel(currentLabel);
-                    // Kiểm tra xem label này có nằm trong danh sách đáp án đúng không
                     ans.setIsCorrect(correctLabels.contains(currentLabel));
                     
                     answers.add(ans);
@@ -66,7 +62,6 @@ public class ExcelImportService {
 
                 dto.setAnswers(answers);
                 
-                // Gọi QuestionService để lưu xuống DB
                 questionService.createQuestion(dto);
 
             } catch (Exception e) {

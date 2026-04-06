@@ -1,15 +1,28 @@
 package vn.hvnh.exam.dto;
 
-import lombok.Data;
 import java.util.UUID;
 
-@Data
 public class CourseClassRequest {
-    private String classCode;       // VD: IT101_N01
-    private String className;       // VD: Lập trình Java - Nhóm 1
-    private String semester;        // VD: HK1
-    private String academicYear;    // VD: 2024-2025
-    private UUID subjectId;         // ID Môn học
-    private UUID teacherId;         // ID Giảng viên (Có thể null nếu chưa phân công)
-    private Integer maxStudents;    // Sĩ số tối đa (Mặc định 60)
+    private String classCode;
+    private String className;
+    private String semester;
+    private String academicYear;
+    private UUID subjectId;
+    private UUID teacherId;
+    private Integer maxStudents;
+
+    public String getClassCode() { return classCode; }
+    public void setClassCode(String classCode) { this.classCode = classCode; }
+    public String getClassName() { return className; }
+    public void setClassName(String className) { this.className = className; }
+    public String getSemester() { return semester; }
+    public void setSemester(String semester) { this.semester = semester; }
+    public String getAcademicYear() { return academicYear; }
+    public void setAcademicYear(String academicYear) { this.academicYear = academicYear; }
+    public UUID getSubjectId() { return subjectId; }
+    public void setSubjectId(UUID subjectId) { this.subjectId = subjectId; }
+    public UUID getTeacherId() { return teacherId; }
+    public void setTeacherId(UUID teacherId) { this.teacherId = teacherId; }
+    public Integer getMaxStudents() { return maxStudents; }
+    public void setMaxStudents(Integer maxStudents) { this.maxStudents = maxStudents; }
 }

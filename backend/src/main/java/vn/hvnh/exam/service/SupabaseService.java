@@ -2,7 +2,6 @@ package vn.hvnh.exam.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,6 @@ import java.util.Map;
  * Sử dụng Supabase Admin API
  */
 @Service
-@RequiredArgsConstructor
 public class SupabaseService {
     
     @Value("${supabase.url}")

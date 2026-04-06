@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.hvnh.exam.entity.sql.Department;
 import vn.hvnh.exam.entity.sql.Faculty;
@@ -11,10 +10,14 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class DepartmentService {
     private final DepartmentRepository departmentRepository;
     private final FacultyRepository facultyRepository;
+
+    public DepartmentService(DepartmentRepository departmentRepository, FacultyRepository facultyRepository) {
+        this.departmentRepository = departmentRepository;
+        this.facultyRepository = facultyRepository;
+    }
 
     public List<Department> getAllDepartments() {
         return departmentRepository.findAll();

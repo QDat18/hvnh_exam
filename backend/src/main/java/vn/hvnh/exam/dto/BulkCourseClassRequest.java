@@ -1,15 +1,28 @@
 package vn.hvnh.exam.dto;
 
-import lombok.Data;
 import java.util.UUID;
 
-@Data
 public class BulkCourseClassRequest {
-    private UUID subjectId;         // Chọn Môn học
-    private String baseClassCode;   // Mã gốc (VD: IT101) -> Hệ thống tự sinh IT101_01, IT101_02
-    private String baseClassName;   // Tên gốc (VD: Lập trình Java) -> Sinh ra Lập trình Java - Nhóm 1
-    private String semester;        // VD: HK1
-    private String academicYear;    // VD: 2024-2025
-    private Integer quantity;       // Số lượng nhóm cần mở (VD: 5)
-    private Integer maxStudents;    
+    private UUID subjectId;
+    private String baseClassCode;
+    private String baseClassName;
+    private String semester;
+    private String academicYear;
+    private Integer quantity;
+    private Integer maxStudents;
+
+    public UUID getSubjectId() { return subjectId; }
+    public void setSubjectId(UUID subjectId) { this.subjectId = subjectId; }
+    public String getBaseClassCode() { return baseClassCode; }
+    public void setBaseClassCode(String baseClassCode) { this.baseClassCode = baseClassCode; }
+    public String getBaseClassName() { return baseClassName; }
+    public void setBaseClassName(String baseClassName) { this.baseClassName = baseClassName; }
+    public String getSemester() { return semester; }
+    public void setSemester(String semester) { this.semester = semester; }
+    public String getAcademicYear() { return academicYear; }
+    public void setAcademicYear(String academicYear) { this.academicYear = academicYear; }
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public Integer getMaxStudents() { return maxStudents; }
+    public void setMaxStudents(Integer maxStudents) { this.maxStudents = maxStudents; }
 }

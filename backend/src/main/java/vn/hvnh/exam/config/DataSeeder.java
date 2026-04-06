@@ -1,48 +1,45 @@
-// package vn.hvnh.exam.config;
+package vn.hvnh.exam.config;
 
-// import lombok.RequiredArgsConstructor;
-// import org.springframework.boot.CommandLineRunner;
-// import org.springframework.security.crypto.password.PasswordEncoder;
-// import org.springframework.stereotype.Component;
-// import vn.hvnh.exam.common.UserRole;
-// import vn.hvnh.exam.common.UserStatus;
-// import vn.hvnh.exam.entity.sql.User;
-// import vn.hvnh.exam.repository.sql.UserRepository;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+import vn.hvnh.exam.common.UserRole;
+import vn.hvnh.exam.common.UserStatus;
+import vn.hvnh.exam.entity.sql.User;
+import vn.hvnh.exam.repository.sql.UserRepository;
+import java.util.UUID;
 
-// import java.util.List;
+@Component
+public class DataSeeder implements CommandLineRunner {
 
-// @Component
-// @RequiredArgsConstructor
-// public class DataSeeder implements CommandLineRunner {
+    private final UserRepository userRepository;
 
-//     private final UserRepository userRepository;
-//     private final PasswordEncoder passwordEncoder;
+    public DataSeeder(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
-//     @Override
-//     public void run(String... args) throws Exception {
-//         // Tạo danh sách 3 user mẫu
-//         createOrUpdateUser("admin@hvnh.edu.vn", "Admin Hệ Thống", UserRole.ADMIN);
-//         createOrUpdateUser("teacher@hvnh.edu.vn", "Giảng Viên Test", UserRole.TEACHER);
-//         createOrUpdateUser("student@hvnh.edu.vn", "Sinh Viên Test", UserRole.STUDENT);
-//     }
+    @Override
+    public void run(String... args) throws Exception {
+        createOrUpdateUser("admin@hvnh.edu.vn", "Admin Hệ Thống", UserRole.ADMIN);
+        createOrUpdateUser("teacher@hvnh.edu.vn", "Giảng Viên Test", UserRole.TEACHER);
+        createOrUpdateUser("student@hvnh.edu.vn", "Sinh Viên Test", UserRole.STUDENT);
+    }
 
-//     private void createOrUpdateUser(String email, String fullName, UserRole role) {
-//         User user = userRepository.findByEmail(email).orElse(null);
-//         String rawPassword = "123456"; // Mật khẩu chung cho tất cả
+    private void createOrUpdateUser(String email, String fullName, UserRole role) {
+        User user = userRepository.findByEmail(email).orElse(null);
 
-//         if (user == null) {
-//             user = User.builder()
-//                     .email(email)
-//                     .fullName(fullName)
-//                     .role(role)
-//                     .status(UserStatus.ACTIVE)
-//                     .build();
-//         }
-
-//         // Luôn reset lại mật khẩu về 123456 để tránh bị quên hoặc lỗi hash
-//         user.setPasswordHash(passwordEncoder.encode(rawPassword));
-//         userRepository.save(user);
-
-//         System.out.println("✅ USER OK: " + email + " | Role: " + role + " | Pass: " + rawPassword);
-//     }
-// }
+        if (user == null) {
+            user = User.builder()
+                    .id(UUID.randomUUID())
+                    .email(email)
+                    .fullName(fullName)
+                    .role(role.name())
+                    .status(UserStatus.ACTIVE.name())
+                    .isFirstLogin(false)
+                    .build();
+            userRepository.save(user);
+            System.out.println("✅ USER CREATED: " + email + " | Role: " + role);
+        } else {
+            System.out.println("ℹ️ USER EXISTS: " + email);
+        }
+    }
+}

@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hvnh.exam.entity.sql.User;
@@ -16,9 +15,10 @@ import java.util.HashMap;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
 
 @Service
-@RequiredArgsConstructor
 public class UserCreationService {
     
     private final UserRepository userRepository;
@@ -30,6 +30,11 @@ public class UserCreationService {
     private static final String SPECIAL = "!@#$%^&*";
     private static final String ALL_CHARS = LOWERCASE + UPPERCASE + DIGITS + SPECIAL;
     private static final SecureRandom random = new SecureRandom();
+
+    public UserCreationService(UserRepository userRepository, SupabaseService supabaseService) {
+        this.userRepository = userRepository;
+        this.supabaseService = supabaseService;
+    }
     
     /**
      * Tạo mật khẩu ngẫu nhiên mạnh
@@ -155,12 +160,6 @@ public class UserCreationService {
                 .updatedAt(LocalDateTime.now())
                 .build();
         
-        // Set faculty if provided
-        if (facultyId != null) {
-            // Set faculty relationship (you'll need FacultyRepository for this)
-            // teacher.setFaculty(...);
-        }
-        
         User saved = userRepository.save(teacher);
         
         System.out.println("✅ Created Teacher: " + email + " | Password: " + password);
@@ -214,12 +213,12 @@ public class UserCreationService {
      * Tạo nhiều students cùng lúc
      */
     @Transactional
-    public java.util.List<User> createBulkStudents(
-            java.util.List<StudentCreateRequest> students, 
+    public List<User> createBulkStudents(
+            List<StudentCreateRequest> students, 
             UUID classId, 
             UUID createdById
     ) {
-        java.util.List<User> createdStudents = new java.util.ArrayList<>();
+        List<User> createdStudents = new ArrayList<>();
         
         for (StudentCreateRequest req : students) {
             try {
@@ -239,10 +238,20 @@ public class UserCreationService {
     /**
      * DTO for bulk student creation
      */
-    @lombok.Data
     public static class StudentCreateRequest {
         private String studentId; // MSSV
         private String fullName;
+        
+        public StudentCreateRequest() {}
+        public StudentCreateRequest(String studentId, String fullName) {
+            this.studentId = studentId;
+            this.fullName = fullName;
+        }
+        
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String studentId) { this.studentId = studentId; }
+        public String getFullName() { return fullName; }
+        public void setFullName(String fullName) { this.fullName = fullName; }
     }
 
     @Value("${supabase.url}")
@@ -274,7 +283,4 @@ public class UserCreationService {
             throw new RuntimeException("Không thể đồng bộ mật khẩu với máy chủ xác thực.");
         }
     }
-
-    
-    
 }

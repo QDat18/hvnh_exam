@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/faculty-admin")
-@RequiredArgsConstructor
 @PreAuthorize("hasAuthority('FACULTY_ADMIN')")
 public class FacultyAdminController {
     
@@ -38,6 +36,18 @@ public class FacultyAdminController {
     private final DepartmentService departmentService;
     private final ClassManagementService classManagementService;
     private final StudentManagementService studentManagementService;
+
+    public FacultyAdminController(
+            TeacherManagementService teacherManagementService,
+            DepartmentService departmentService,
+            ClassManagementService classManagementService,
+            StudentManagementService studentManagementService
+    ) {
+        this.teacherManagementService = teacherManagementService;
+        this.departmentService = departmentService;
+        this.classManagementService = classManagementService;
+        this.studentManagementService = studentManagementService;
+    }
     /**
      * GET /api/faculty-admin/teachers
      * Lấy danh sách giảng viên trong khoa

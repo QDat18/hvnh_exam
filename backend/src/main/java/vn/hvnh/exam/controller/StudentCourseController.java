@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -11,10 +10,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/student/course-classes")
-@RequiredArgsConstructor
 public class StudentCourseController {
 
     private final CourseClassService courseClassService;
+
+    public StudentCourseController(CourseClassService courseClassService) {
+        this.courseClassService = courseClassService;
+    }
 
     // API: Sinh viên nhập mã tham gia lớp
     @PostMapping("/join")

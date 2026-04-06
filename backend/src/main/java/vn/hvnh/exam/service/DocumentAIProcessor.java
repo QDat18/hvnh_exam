@@ -1,14 +1,19 @@
 package vn.hvnh.exam.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.hvnh.exam.entity.sql.Flashcard;
+import vn.hvnh.exam.entity.sql.StudentDocument;
+import vn.hvnh.exam.repository.sql.FlashcardRepository;
+import vn.hvnh.exam.repository.sql.StudentDocumentRepository;
+import vn.hvnh.exam.service.LLMIntegrationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.hvnh.exam.entity.sql.*;
 import vn.hvnh.exam.repository.sql.*;
@@ -18,14 +23,26 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class DocumentAIProcessor {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentAIProcessor.class);
 
     private final StudentDocumentRepository documentRepo;
     private final FlashcardRepository flashcardRepo;
     private final LLMIntegrationService llmService;
     private final ObjectMapper objectMapper;
+
+    public DocumentAIProcessor(
+        StudentDocumentRepository documentRepo,
+        FlashcardRepository flashcardRepo,
+        LLMIntegrationService llmService,
+        ObjectMapper objectMapper
+    ) {
+        this.documentRepo = documentRepo;
+        this.flashcardRepo = flashcardRepo;
+        this.llmService = llmService;
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Main entry point - upload and process document
@@ -44,9 +61,6 @@ public class DocumentAIProcessor {
             
             // Create document record
             StudentDocument doc = createDocumentRecord(file, studentId, subjectId, documentType, enableAI);
-            
-            // Trigger async processing
-            processAsync(file, doc);
             
             return doc;
             
@@ -76,9 +90,9 @@ public class DocumentAIProcessor {
                 throw new RuntimeException("Document too short");
             }
             
-            // AI processing cho Flashcards
+            // AI processing cho Flashcards (Mặc định tạo 20 thẻ khi upload mới)
             if (doc.getIsAiEnabled()) {
-                int flashcardsCreated = generateAndSaveFlashcards(extractedText, doc);
+                int flashcardsCreated = generateAndSaveFlashcards(extractedText, doc, 20);
                 log.info("✅ Created {} flashcards", flashcardsCreated);
             }
             
@@ -94,7 +108,7 @@ public class DocumentAIProcessor {
         }
     }
 
-    private StudentDocument createDocumentRecord(
+    public StudentDocument createDocumentRecord(
         MultipartFile file,
         UUID studentId,
         UUID subjectId,
@@ -147,19 +161,24 @@ public class DocumentAIProcessor {
         return extractedText.toString();
     }
 
-    private int generateAndSaveFlashcards(String documentText, StudentDocument doc) {
+    /**
+     * AI processing cho Flashcards - EXPOSED for on-demand generation
+     */
+    public int generateAndSaveFlashcards(String documentText, StudentDocument doc, int requestedCount) {
         try {
-            // Chia text thành các chunk 8000 ký tự, mỗi chunk tạo ~7 flashcard
-            // Tổng 30000 ký tự → ~3-4 chunk → ~20-28 flashcard chất lượng
-            List<String> chunks = splitIntoChunks(documentText, 8000);
-            log.info("📄 Split into {} chunks for flashcard generation", chunks.size());
+            // Chia text thành các chunk nhỏ hơn (4000 chars) để tránh Rate Limit Groq
+            List<String> chunks = splitIntoChunks(documentText, 4000);
+            log.info("📄 Split into {} chunks for flashcard generation of {} cards", chunks.size(), requestedCount);
 
             int totalSaved = 0;
             int chunkNum = 0;
+            // Phân bổ số thẻ cho mỗi chunk: min 1, tối thiểu 3 nếu count lớn
+            int cardsPerChunk = Math.max(1, requestedCount / chunks.size());
+            
             for (String chunk : chunks) {
                 chunkNum++;
-                log.info("📤 Processing chunk {}/{}...", chunkNum, chunks.size());
-                String prompt = buildBloomFlashcardPrompt(chunk, chunkNum, chunks.size());
+                log.info("📤 Processing chunk {}/{} (Target: {} cards)...", chunkNum, chunks.size(), cardsPerChunk);
+                String prompt = buildBloomFlashcardPrompt(chunk, chunkNum, chunks.size(), cardsPerChunk);
                 String aiResponse = llmService.callAI(prompt);
                 List<FlashcardDTO> flashcardDTOs = parseFlashcardsFromAI(aiResponse);
 
@@ -167,6 +186,14 @@ public class DocumentAIProcessor {
                     try {
                         if (dto.getFront() == null || dto.getFront().isBlank()) continue;
                         if (dto.getBack() == null || dto.getBack().isBlank()) continue;
+
+                        // 🔥 Check for semantic duplicates within this document
+                        // If similarity > 0.85, skip saving
+                        boolean isDuplicate = flashcardRepo.existsBySemanticSimilarity(doc.getStudentDocId(), dto.getFront());
+                        if (isDuplicate) {
+                            log.info("⏭️ Skipping duplicate flashcard: {}", dto.getFront());
+                            continue;
+                        }
 
                         Flashcard card = new Flashcard();
                         card.setStudentId(doc.getStudentId());
@@ -233,15 +260,14 @@ public class DocumentAIProcessor {
     /**
      * Prompt chuẩn Bloom Taxonomy — tạo flashcard theo 3 tầng nhận thức
      */
-    private String buildBloomFlashcardPrompt(String chunk, int chunkNum, int totalChunks) {
-        return String.format("""
+    private String buildBloomFlashcardPrompt(String chunk, int chunkNum, int totalChunks, int cardsPerChunk) {
+        return """
             Bạn là giáo sư đại học xuất sắc, chuyên gia về phương pháp giảng dạy tích cực.
-            Đây là phần %d/%d của tài liệu học (đã đánh dấu [TRANG X] ở mỗi trang).
+            Đây là phần {{chunkNum}}/{{totalChunks}} của tài liệu học (đã đánh dấu [TRANG X] ở mỗi trang).
 
-            NHIỆM VỤ: Tạo 7 flashcard chất lượng cao theo Bloom Taxonomy:
-            - 3 thẻ MỨC NHỚ (difficulty: EASY) — Định nghĩa, khái niệm, công thức cơ bản
-            - 3 thẻ MỨC HIỂU/VẬN DỤNG (difficulty: MEDIUM) — So sánh, giải thích tại sao, ví dụ thực tế
-            - 1 thẻ MỨC PHÂN TÍCH (difficulty: HARD) — Tình huống, đánh giá, suy luận nâng cao
+            NHIỆM VỤ: Tạo {{cardsPerChunk}} flashcard chất lượng cao theo Bloom Taxonomy:
+            - Phân bổ đều các mức độ: Nhận biết, Thông hiểu, Vận dụng, Phân tích.
+            - Ưu tiên các kiến thức trọng tâm, định nghĩa và ví dụ thực tế.
 
             QUY TẮC BẮT BUỘC:
             1. front: Câu hỏi ngắn gọn, kích thích tư duy (KHÔNG phải câu hỏi Yes/No)
@@ -263,8 +289,12 @@ public class DocumentAIProcessor {
             ]
 
             TÀI LIỆU:
-            %s
-            """, chunkNum, totalChunks, chunk);
+            {{chunk}}
+            """
+            .replace("{{chunkNum}}", String.valueOf(chunkNum))
+            .replace("{{totalChunks}}", String.valueOf(totalChunks))
+            .replace("{{cardsPerChunk}}", String.valueOf(cardsPerChunk))
+            .replace("{{chunk}}", chunk);
     }
 
     private String normalizeDifficulty(String raw) {

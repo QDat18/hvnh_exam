@@ -1,251 +1,701 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    FileText, Plus, Trash2, Eye,
+    Loader2, CheckCircle2, AlertCircle, Filter,
+    Search, BookMarked, X, Book, ChevronDown
+} from 'lucide-react';
 import { studyHubApi } from '../../services/studyHubApi';
+import { toast } from 'react-toastify';
 import { type StudentDocument } from '../../types/study';
-import { CloudUpload, FileText, Clock, CheckCircle, AlertTriangle, FileUp, Trash2, ListChecks } from 'lucide-react';
+import Skeleton from '../../components/common/Skeleton';
 
 interface DocumentManagerTabProps {
-    subjectId: string;
+    subjectId?: string;
 }
 
-const DocumentManagerTab: React.FC<DocumentManagerTabProps> = ({ subjectId }) => {
-    const [documents, setDocuments] = useState<StudentDocument[]>([]);
-    const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
-    
-    // Đổi state này thành số lượng file đang up để giao diện hiện số cho sinh động
-    const [uploadingCount, setUploadingCount] = useState<number>(0);
-    
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const pollingRef = useRef<NodeJS.Timeout | null>(null);
+// Component con hiển thị từng dòng tài liệu (Dùng memo để chống giật lag khi render lại)
+const DocumentRow = memo(({
+    doc,
+    idx,
+    isLast,
+    onNavigate,
+    onDelete,
+    formatDate
+}: {
+    doc: StudentDocument,
+    idx: number,
+    isLast: boolean,
+    onNavigate: (url: string) => void,
+    onDelete: (id: string, title: string) => void,
+    formatDate: (date?: string) => string
+}) => {
+    return (
+        <div
+            style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(250px, 2fr) minmax(120px, 1.5fr) minmax(150px, 1.5fr) 120px',
+                gap: '16px',
+                padding: '16px 20px',
+                borderBottom: !isLast ? '1px solid #f3f4f6' : 'none',
+                alignItems: 'center',
+                transition: 'background 0.3s',
+                background: 'white'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#f9fafb')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+        >
+            {/* Cột 1: Tên tài liệu */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    flexShrink: 0
+                }}>
+                    <FileText size={20} />
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                    <div style={{
+                        fontWeight: 600,
+                        color: '#1f2937',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                    }} title={doc.documentTitle}>
+                        {doc.documentTitle}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        {formatDate(doc.uploadedAt)}
+                    </div>
+                </div>
+            </div>
 
-    const fetchDocuments = useCallback(async (isPolling = false) => {
-        try {
-            const res = await studyHubApi.getDocuments(subjectId);
-            const docs = res.data?.documents || [];
-            setDocuments(docs);
-            if (docs.some((d: StudentDocument) => d.processingStatus === 'PROCESSING')) {
-                if (!pollingRef.current) startPolling();
-            } else {
-                stopPolling();
+            {/* Cột 2: Loại */}
+            <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>
+                {doc.processedCount || 0} thẻ nhớ
+            </div>
+
+            {/* Cột 3: Trạng thái xử lý AI */}
+            <div>
+                {doc.processingStatus === 'PROCESSING' ? (
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        color: '#f59e0b',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                        Xử lý...
+                    </div>
+                ) : doc.processingStatus === 'COMPLETED' ? (
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        color: '#10b981',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <CheckCircle2 size={12} />
+                        Hoàn thành
+                    </div>
+                ) : (
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: '#ef4444',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <AlertCircle size={12} />
+                        Lỗi
+                    </div>
+                )}
+            </div>
+
+            {/* Cột 4: Hành động */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                {doc.processingStatus === 'COMPLETED' && (
+                    <button
+                        onClick={() => onNavigate(`/student/flashcards/review?fileId=${doc.studentDocId}`)}
+                        style={{
+                            padding: '6px 12px',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            color: '#10b981',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.3s',
+                            transform: 'scale(1)'
+                        }}
+                        onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.96)')}
+                        onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)')}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
+                        }}
+                    >
+                        <Eye size={14} />
+                        Học
+                    </button>
+                )}
+                <button
+                    onClick={() => onDelete(doc.studentDocId, doc.documentTitle)}
+                    style={{
+                        padding: '6px 12px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: '#ef4444',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.3s',
+                        transform: 'scale(1)'
+                    }}
+                    onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.92)')}
+                    onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)')}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                    }}
+                >
+                    <Trash2 size={14} />
+                </button>
+            </div>
+        </div>
+    );
+});
+
+const DocumentManagerTab: React.FC<DocumentManagerTabProps> = ({ subjectId }) => {
+    const navigate = useNavigate();
+    const [documents, setDocuments] = useState<StudentDocument[]>([]);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    // State cho thanh tìm kiếm Dropdown
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    // State cho phân trang (Pagination)
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // State quản lý môn học
+    const [availableSubjects, setAvailableSubjects] = useState<any[]>([]);
+    const [uploadSubjectId, setUploadSubjectId] = useState<string>(subjectId || '');
+
+    // Đóng dropdown tìm kiếm khi click ra ngoài
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setIsSearchFocused(false);
             }
-        } catch (err) {
-            console.error("Lỗi lấy danh sách tài liệu:", err);
-        } finally {
-            if (!isPolling) setIsInitialLoading(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // FETCH DANH SÁCH MÔN HỌC (Sử dụng API mới để lấy tất cả môn học đã join)
+    useEffect(() => {
+        if (!subjectId) {
+            studyHubApi.getDocumentSubjects().then(res => {
+                setAvailableSubjects(res.data || []);
+            }).catch(err => {
+                console.error("Lỗi lấy môn học:", err);
+                setAvailableSubjects([]);
+            });
         }
     }, [subjectId]);
 
-    const startPolling = () => {
-        if (pollingRef.current) return;
-        pollingRef.current = setInterval(() => fetchDocuments(true), 5000);
-    };
-
-    const stopPolling = () => {
-        if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-        }
-    };
+    useEffect(() => {
+        setUploadSubjectId(subjectId || '');
+    }, [subjectId]);
 
     useEffect(() => {
-        setIsInitialLoading(true);
-        setSelectedDocs([]);
-        fetchDocuments();
-        return () => stopPolling();
-    }, [fetchDocuments]);
-
-    // 🔥 ĐÃ NÂNG CẤP: XỬ LÝ UPLOAD NHIỀU FILE CÙNG LÚC
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        // Lấy toàn bộ danh sách file người dùng chọn
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
-
-        // Lọc chỉ lấy PDF và TXT
-        const validFiles = files.filter(file => file.type === 'application/pdf' || file.name.endsWith('.txt'));
-        
-        if (validFiles.length < files.length) {
-            alert("Một số file không đúng định dạng (chỉ nhận PDF, TXT) nên đã bị bỏ qua!");
+        if (subjectId) {
+            setDocuments([]);
+            setPage(0);
+            setHasMore(true);
+            fetchDocuments(true, 0);
         }
+    }, [subjectId]);
 
-        if (validFiles.length === 0) return;
+    // Polling 10 giây 1 lần chỉ khi có file đang PROCESSING
+    const hasProcessingDocs = documents.some(doc => doc.processingStatus === 'PROCESSING');
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (hasProcessingDocs) {
+            interval = setInterval(() => {
+                fetchDocuments(false, 0);
+            }, 8000); // Tăng lên 8s cho đỡ nghẽn mạng
+        }
+        return () => clearInterval(interval);
+    }, [hasProcessingDocs, subjectId]);
 
-        setUploadingCount(validFiles.length); // Hiện thông báo đang up bao nhiêu file
+    // Xử lý cuộn trang (Infinite scroll)
+    const handleScroll = useCallback(() => {
+        if (!scrollContainerRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+
+        if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !isLoadingMore && !isInitialLoading) {
+            fetchDocuments(false, page);
+        }
+    }, [page, hasMore, isLoadingMore, isInitialLoading, subjectId]);
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (container) {
+            container.addEventListener('scroll', handleScroll);
+            return () => container.removeEventListener('scroll', handleScroll);
+        }
+    }, [page, hasMore, isLoadingMore, isInitialLoading, handleScroll]);
+
+    // Hàm gọi API lấy tài liệu
+    const fetchDocuments = async (showLoading = true, pageNum = page) => {
+        if (!subjectId) return;
+        if (showLoading && pageNum === 0) setIsInitialLoading(true);
+        if (pageNum > 0) setIsLoadingMore(true);
 
         try {
-            // Upload song song nhiều file lên server
-            await Promise.all(validFiles.map(file => studyHubApi.uploadDocument(file, subjectId)));
-            fetchDocuments(); // Tải lại danh sách sau khi up xong
-        } catch (err) {
-            alert("Đã xảy ra lỗi khi tải một số tài liệu lên. Vui lòng kiểm tra lại.");
-            fetchDocuments(); // Vẫn tải lại để xem cái nào up thành công
+            const limit = 10;
+            const offset = pageNum * limit;
+            const res = await studyHubApi.getDocuments(subjectId, offset, limit);
+            const newDocs = res.data.documents || [];
+
+            if (pageNum === 0) {
+                setDocuments(newDocs);
+            } else {
+                setDocuments(prev => [...prev, ...newDocs]);
+            }
+
+            setHasMore(newDocs.length === limit);
+            setPage(pageNum + 1);
+        } catch (error) {
+            console.error("Error fetching documents:", error);
+            if (showLoading) toast.error("Không thể tải danh sách tài liệu.");
         } finally {
-            setUploadingCount(0); // Tắt trạng thái loading
-            if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+            setIsInitialLoading(false);
+            setIsLoadingMore(false);
         }
     };
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) setSelectedDocs(documents.map(d => d.studentDocId));
-        else setSelectedDocs([]);
-    };
+    // Hàm Upload tài liệu
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
 
-    const handleSelectOne = (id: string, checked: boolean) => {
-        if (checked) setSelectedDocs(prev => [...prev, id]);
-        else setSelectedDocs(prev => prev.filter(docId => docId !== id));
-    };
+        const finalSubjectId = subjectId || uploadSubjectId;
 
-    const handleDeleteSingle = async (docId: string, docName: string) => {
-        if (window.confirm(`Xóa tài liệu "${docName}"?`)) {
-            try {
-                await studyHubApi.deleteDocument(docId);
-                fetchDocuments(); 
-                setSelectedDocs(prev => prev.filter(id => id !== docId));
-            } catch (err) {
-                alert("Không thể xóa tài liệu.");
-            }
+        if (!finalSubjectId) {
+            toast.warning("Vui lòng chọn môn học trước khi tải tài liệu!");
+            return;
+        }
+
+        try {
+            setIsUploading(true);
+            setUploadProgress(0);
+
+            await studyHubApi.uploadDocument(file, finalSubjectId, 'TEXTBOOK', (progressEvent: any) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                setUploadProgress(percentCompleted);
+            });
+
+            toast.success("Tải lên thành công! AI đang bắt đầu tạo Flashcard.");
+            fetchDocuments(false, 0);
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast.error("Lỗi khi tải tài liệu lên.");
+        } finally {
+            setIsUploading(false);
+            setUploadProgress(0);
+            if (e.target) e.target.value = '';
         }
     };
 
-    const handleBulkDelete = async () => {
-        if (selectedDocs.length === 0) return;
-        if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedDocs.length} tài liệu đã chọn không? Mọi dữ liệu trắc nghiệm, thẻ nhớ liên quan sẽ mất vĩnh viễn.`)) {
-            setUploadingCount(-1); // Mượn state để block màn hình lúc xóa
-            try {
-                await Promise.all(selectedDocs.map(id => studyHubApi.deleteDocument(id)));
-                setSelectedDocs([]);
-                fetchDocuments();
-            } catch (err) {
-                alert("Đã xảy ra lỗi trong quá trình xóa một số tài liệu.");
-                fetchDocuments();
-            } finally {
-                setUploadingCount(0);
-            }
+    // Hàm xóa tài liệu
+    const handleDeleteSingle = async (docId: string, title: string) => {
+        if (!window.confirm(`Bạn có chắc chắn muốn xóa tài liệu "${title}" không?`)) return;
+
+        try {
+            await studyHubApi.deleteDocument(docId);
+            toast.success("Đã xóa tài liệu.");
+            setDocuments(prev => prev.filter(d => d.studentDocId !== docId));
+            setPage(0);
+            setHasMore(true);
+        } catch (error) {
+            toast.error("Lỗi khi xóa tài liệu.");
         }
     };
 
-    const isUploading = uploadingCount > 0;
-    const isDeleting = uploadingCount < 0;
+    // Format ngày tháng
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return '---';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return '---';
+            return date.toLocaleDateString('vi-VN', {
+                year: 'numeric', month: 'short', day: 'numeric'
+            });
+        } catch {
+            return '---';
+        }
+    };
+
+    // Lọc tài liệu theo thanh tìm kiếm
+    const filteredDocs = documents.filter(d =>
+        d.documentTitle.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Tìm tên môn học để hiển thị lên Nút
+    const selectedSubjectName = availableSubjects.find(s => s.subjectId === uploadSubjectId)?.subjectName || "Đang tải...";
+
+    // NẾU CHƯA CHỌN MÔN HỌC Ở THANH ĐIỀU HƯỚNG TỔNG
+    if (!subjectId) {
+        return (
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: 'white', borderRadius: '32px', border: '1px solid #e5e7eb', margin: '20px', fontFamily: "'Inter', sans-serif" }}>
+                <div style={{ width: '80px', height: '80px', background: '#f5f3ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                    <BookMarked size={40} color="#6366f1" />
+                </div>
+                <h3 style={{ fontWeight: 800, color: '#1e293b', marginBottom: '12px', fontSize: '1.5rem' }}>Chưa chọn môn học</h3>
+                <p style={{ color: '#64748b', maxWidth: '400px', margin: '0 auto 32px', fontWeight: 500 }}>Vui lòng chọn một môn học ở thanh công cụ phía trên để quản lý tài liệu và học tập.</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="row g-4 animation-fade-in">
-            {/* CỘT TRÁI: UPLOAD */}
-            <div className="col-lg-4">
-                <div className="card border-0 shadow-sm rounded-4 h-100 bg-primary bg-gradient text-white">
-                    <div className="card-body p-5 text-center d-flex flex-column justify-content-center">
-                        <CloudUpload size={60} className="mb-4 mx-auto opacity-75" />
-                        <h4 className="fw-bold text-white mb-3">Tải Tài Liệu Lên</h4>
-                        <p className="text-white-50 mb-4 small">
-                            Hỗ trợ định dạng PDF, TXT. Bạn có thể chọn nhiều file cùng lúc (Quét chuột hoặc Ctrl+Click).
-                        </p>
-                        
-                        {/* THÊM THUỘC TÍNH multiple VÀO ĐÂY */}
-                        <input 
-                            type="file" 
-                            className="d-none" 
-                            ref={fileInputRef} 
-                            onChange={handleFileChange} 
-                            accept=".pdf,.txt" 
-                            multiple 
-                        />
-                        
-                        <button 
-                            onClick={() => fileInputRef.current?.click()} 
-                            disabled={isUploading || isDeleting} 
-                            className="btn btn-light text-primary btn-lg rounded-pill fw-bold shadow mt-auto w-100"
+        <div style={{ padding: '20px' }}>
+            <div style={{ marginBottom: '30px' }}>
+
+                {/* DÒNG 1: CHỌN MÔN HỌC & NÚT UPLOAD */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+
+                    {/* Giao diện nút Chọn Môn Học dạng Pill */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '8px 16px',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '100px',
+                            color: '#1e293b',
+                            fontWeight: 700,
+                            fontSize: '15px',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
                         >
-                            {isUploading ? (
-                                <><span className="spinner-border spinner-border-sm me-2" /> Đang tải lên {uploadingCount} file...</>
-                            ) : (
-                                <><FileUp size={20} className="me-2 mb-1 d-inline" /> CHỌN NHIỀU FILE</>
-                            )}
+                            <div style={{
+                                background: '#eef2ff', padding: '6px', borderRadius: '8px', display: 'flex'
+                            }}>
+                                <Book size={16} color="#4f46e5" />
+                            </div>
+                            {selectedSubjectName}
+                            <ChevronDown size={16} color="#94a3b8" style={{ marginLeft: '4px' }} />
                         </button>
                     </div>
-                </div>
-            </div>
 
-            {/* CỘT PHẢI: QUẢN LÝ FILE */}
-            <div className="col-lg-8">
-                <div className="card border-0 shadow-sm rounded-4 h-100 d-flex flex-column">
-                    <div className="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-center gap-3">
-                            {documents.length > 0 && (
-                                <input 
-                                    className="form-check-input mt-0 fs-5 border-secondary" 
-                                    type="checkbox" 
-                                    title="Chọn tất cả"
-                                    checked={selectedDocs.length === documents.length && documents.length > 0}
-                                    onChange={handleSelectAll}
-                                />
-                            )}
-                            <h5 className="fw-bold text-dark mb-0 d-flex align-items-center">
-                                <ListChecks size={20} className="me-2 text-primary" /> Tài liệu đã tải lên
-                            </h5>
-                        </div>
-                        
-                        {selectedDocs.length > 0 ? (
-                            <button onClick={handleBulkDelete} disabled={isDeleting} className="btn btn-danger btn-sm rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center animation-fade-in">
-                                {isDeleting ? <span className="spinner-border spinner-border-sm me-2"/> : <Trash2 size={16} className="me-2" />}
-                                Xóa {selectedDocs.length} mục đã chọn
-                            </button>
-                        ) : (
-                            <span className="badge bg-primary rounded-pill">{documents.length} files</span>
-                        )}
-                    </div>
-
-                    <div className="card-body p-0 overflow-auto flex-grow-1" style={{ maxHeight: '600px' }}>
-                        {isInitialLoading ? (
-                            <div className="text-center py-5"><div className="spinner-border text-primary border-3"></div></div>
-                        ) : documents.length === 0 ? (
-                            <div className="text-center py-5">
-                                <FileText size={50} className="text-muted opacity-25 mb-3 mx-auto" />
-                                <p className="text-muted fw-bold">Chưa có tài liệu nào. Hãy quét khối nhiều file để tải lên nhé!</p>
+                    {/* Nút Upload Tài liệu */}
+                    <label style={{
+                        padding: '12px 24px',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '16px',
+                        fontWeight: 700,
+                        cursor: isUploading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '14px',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                        onMouseEnter={(e) => !isUploading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}>
+                        {isUploading ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                                <div style={{ width: '100px', height: '6px', background: 'rgba(255,255,255,0.3)', borderRadius: '10px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#fff', transition: 'width 0.3s' }}></div>
+                                </div>
+                                <span style={{ fontSize: '12px' }}>{uploadProgress}%</span>
                             </div>
                         ) : (
-                            <div className="list-group list-group-flush">
-                                {documents.map(doc => {
-                                    const isSelected = selectedDocs.includes(doc.studentDocId);
-                                    return (
-                                        <div key={doc.studentDocId} className={`list-group-item p-4 border-bottom d-flex align-items-center justify-content-between transition-all ${isSelected ? 'bg-primary bg-opacity-10' : 'hover-bg-light'}`}>
-                                            <div className="d-flex align-items-center overflow-hidden pe-3 w-75">
-                                                <input 
-                                                    className="form-check-input fs-5 me-3 border-secondary flex-shrink-0" 
-                                                    type="checkbox" 
-                                                    checked={isSelected}
-                                                    onChange={(e) => handleSelectOne(doc.studentDocId, e.target.checked)}
-                                                />
-                                                <div className={`bg-white shadow-sm p-3 rounded-3 me-3 ${isSelected ? 'text-primary border border-primary' : 'text-secondary border'}`}>
-                                                    <FileText size={24} />
-                                                </div>
-                                                <div className="overflow-hidden">
-                                                    <h6 className={`fw-bold mb-1 text-truncate ${isSelected ? 'text-primary' : ''}`} title={doc.documentTitle}>{doc.documentTitle}</h6>
-                                                    <div className="text-muted small d-flex align-items-center gap-3">
-                                                        <span>{new Date(doc.uploadedAt).toLocaleDateString('vi-VN')}</span>
-                                                        <span>{doc.fileSizeMb ? `${doc.fileSizeMb} MB` : 'PDF'}</span>
-                                                    </div>
-                                                </div>
+                            <Plus size={18} />
+                        )}
+                        {isUploading ? 'Đang tải...' : 'Tải tài liệu mới'}
+                        <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.doc,.docx,.txt"
+                            onChange={handleFileChange}
+                            disabled={isUploading}
+                        />
+                    </label>
+                </div>
+
+                {/* DÒNG 2: THANH TÌM KIẾM & LỌC */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+
+                    {/* Thanh Tìm Kiếm Floating Dropdown */}
+                    <div ref={searchRef} style={{ position: 'relative', flex: '1 1 300px' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            padding: '10px 16px',
+                            border: isSearchFocused ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                            borderRadius: '100px',
+                            background: 'white',
+                            transition: 'all 0.2s',
+                        }}>
+                            <Search size={18} color="#64748b" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm tài liệu..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onFocus={() => setIsSearchFocused(true)}
+                                style={{
+                                    border: 'none', outline: 'none', flex: 1, fontSize: '15px', color: '#1e293b'
+                                }}
+                            />
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                                    <X size={16} color="#94a3b8" />
+                                </button>
+                            )}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                padding: '4px 6px', background: '#f1f5f9', borderRadius: '6px',
+                                fontSize: '12px', fontWeight: 600, color: '#64748b',
+                                border: '1px solid #e2e8f0'
+                            }}>
+                                ⌘ K
+                            </div>
+                        </div>
+
+                        {/* Dropdown Kết Quả */}
+                        {isSearchFocused && searchTerm && (
+                            <div style={{
+                                position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0,
+                                background: 'white',
+                                borderRadius: '16px',
+                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                                border: '1px solid #e2e8f0',
+                                zIndex: 50,
+                                padding: '12px 0',
+                                maxHeight: '300px',
+                                overflowY: 'auto'
+                            }}>
+                                <div style={{ padding: '0 16px 8px', fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                                    Kết quả tìm kiếm ({filteredDocs.length})
+                                </div>
+
+                                {filteredDocs.length === 0 ? (
+                                    <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                                        Không tìm thấy tài liệu phù hợp
+                                    </div>
+                                ) : (
+                                    filteredDocs.map(doc => (
+                                        <div key={doc.studentDocId} style={{
+                                            padding: '12px 16px',
+                                            display: 'flex', flexDirection: 'column', gap: '4px',
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s'
+                                        }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <FileText size={16} color="#3b82f6" />
+                                                <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '14px' }}>{doc.documentTitle}</span>
                                             </div>
-
-                                            <div className="flex-shrink-0 text-end d-flex align-items-center gap-3">
-                                                {doc.processingStatus === 'COMPLETED' && <span className="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2"><CheckCircle size={14} className="me-1" /> Sẵn sàng</span>}
-                                                {doc.processingStatus === 'PROCESSING' && <span className="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning rounded-pill px-3 py-2"><Clock size={14} className="me-1" /> Đang xử lý AI</span>}
-                                                {doc.processingStatus === 'FAILED' && <span className="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-3 py-2"><AlertTriangle size={14} className="me-1" /> Lỗi đọc file</span>}
-
-                                                <button 
-                                                    className="btn btn-sm btn-outline-danger border-0 rounded-circle p-2 hover-bg-danger hover-text-white transition-all ms-2"
-                                                    title="Xóa tài liệu này"
-                                                    onClick={() => handleDeleteSingle(doc.studentDocId, doc.documentTitle)}
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                            <div style={{ fontSize: '12px', color: '#64748b', marginLeft: '24px' }}>
+                                                document • {doc.subjectId === subjectId ? 'Chung' : 'Khác'}
                                             </div>
                                         </div>
-                                    );
-                                })}
+                                    ))
+                                )}
                             </div>
                         )}
                     </div>
+
+                    {/* Nút Bộ Lọc */}
+                    <button style={{
+                        padding: '10px 16px',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '100px',
+                        background: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: '#64748b',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.3s'
+                    }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#f8fafc';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'white';
+                        }}>
+                        <Filter size={16} />
+                        Bộ lọc
+                    </button>
                 </div>
             </div>
+
+            {/* BẢNG DANH SÁCH TÀI LIỆU */}
+            <div style={{
+                maxHeight: '600px',
+                overflow: 'auto',
+                borderRadius: '16px',
+                border: '1px solid #e5e7eb',
+                background: 'white'
+            }} ref={scrollContainerRef}>
+
+                <div style={{ minWidth: '800px' }}>
+                    {isInitialLoading ? (
+                        <div style={{ padding: '0' }}>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'minmax(250px, 2fr) minmax(120px, 1.5fr) minmax(150px, 1.5fr) 120px',
+                                gap: '16px',
+                                padding: '16px 20px',
+                                borderBottom: '1px solid #e5e7eb',
+                                background: '#f9fafb'
+                            }}>
+                                {[1, 2, 3, 4].map(i => <Skeleton key={i} height="12px" width="60%" />)}
+                            </div>
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <div key={i} style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'minmax(250px, 2fr) minmax(120px, 1.5fr) minmax(150px, 1.5fr) 120px',
+                                    gap: '16px',
+                                    padding: '20px',
+                                    borderBottom: '1px solid #f3f4f6',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <Skeleton width="40px" height="40px" borderRadius="8px" />
+                                        <div style={{ flex: 1 }}>
+                                            <Skeleton width="70%" height="14px" style={{ marginBottom: '8px' }} />
+                                            <Skeleton width="40%" height="10px" />
+                                        </div>
+                                    </div>
+                                    <Skeleton width="50%" height="12px" />
+                                    <Skeleton width="100px" height="24px" borderRadius="20px" />
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                        <Skeleton width="60px" height="30px" borderRadius="6px" />
+                                        <Skeleton width="40px" height="30px" borderRadius="6px" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : documents.length === 0 ? (
+                        <div style={{ padding: '60px 20px', textAlign: 'center', color: '#9ca3af' }}>
+                            <FileText size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
+                            <p style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>Chưa có tài liệu nào</p>
+                            <p style={{ fontSize: '14px' }}>Hãy tải lên tài liệu để bắt đầu tạo flashcard</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'minmax(250px, 2fr) minmax(120px, 1.5fr) minmax(150px, 1.5fr) 120px',
+                                gap: '16px',
+                                padding: '16px 20px',
+                                borderBottom: '1px solid #e5e7eb',
+                                background: '#f9fafb',
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                color: '#6b7280',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                            }}>
+                                <div>Tên tài liệu</div>
+                                <div>Loại</div>
+                                <div>Trạng thái</div>
+                                <div style={{ textAlign: 'center' }}>Hành động</div>
+                            </div>
+
+                            <div>
+                                {filteredDocs.map((doc, idx) => (
+                                    <DocumentRow
+                                        key={doc.studentDocId}
+                                        doc={doc}
+                                        idx={idx}
+                                        isLast={idx === filteredDocs.length - 1}
+                                        onNavigate={navigate}
+                                        onDelete={handleDeleteSingle}
+                                        formatDate={formatDate}
+                                    />
+                                ))}
+                            </div>
+
+                            {isLoadingMore && (
+                                <div style={{
+                                    padding: '20px',
+                                    textAlign: 'center',
+                                    opacity: 0.5,
+                                    borderTop: '1px solid #e5e7eb'
+                                }}>
+                                    <Loader2 size={20} style={{ display: 'inline', animation: 'spin 1s linear infinite', marginRight: '8px' }} />
+                                    Đang tải thêm...
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };

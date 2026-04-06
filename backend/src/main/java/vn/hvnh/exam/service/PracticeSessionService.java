@@ -1,7 +1,7 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hvnh.exam.dto.*;
@@ -12,13 +12,19 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class PracticeSessionService {
+
+    private static final Logger log = LoggerFactory.getLogger(PracticeSessionService.class);
 
     private final PracticeSessionRepository sessionRepo;
     private final QuestionRepository questionRepo;
     private final SubjectRepository subjectRepo;
+
+    public PracticeSessionService(PracticeSessionRepository sessionRepo, QuestionRepository questionRepo, SubjectRepository subjectRepo) {
+        this.sessionRepo = sessionRepo;
+        this.questionRepo = questionRepo;
+        this.subjectRepo = subjectRepo;
+    }
 
     @Transactional
     public PracticeSessionResponse generatePracticeSession(

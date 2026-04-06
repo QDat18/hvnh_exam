@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -20,16 +19,21 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class SubjectService {
     private final SubjectRepository subjectRepository;
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
+    private final CurrentUserService currentUserService;
+
+    public SubjectService(SubjectRepository subjectRepository, DepartmentRepository departmentRepository, UserRepository userRepository, CurrentUserService currentUserService) {
+        this.subjectRepository = subjectRepository;
+        this.departmentRepository = departmentRepository;
+        this.userRepository = userRepository;
+        this.currentUserService = currentUserService;
+    }
 
     private User getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        return currentUserService.getCurrentUser();
     }
 
     public List<SubjectResponse> getAllSubjects() {

@@ -16,6 +16,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     
     // Các hàm không dính tới Role thì giữ nguyên, JPA tự lo được
     Optional<User> findByEmail(String email);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.faculty WHERE u.email = :email")
+    Optional<User> findByEmailWithFaculty(@Param("email") String email);
     boolean existsByEmail(String email);
     List<User> findByDepartment_Id(UUID departmentId);
     // ==========================================

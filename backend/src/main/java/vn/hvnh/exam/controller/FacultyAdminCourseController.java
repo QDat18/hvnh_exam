@@ -1,11 +1,11 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.hvnh.exam.dto.CourseClassRequest;
-import vn.hvnh.exam.dto.CourseClassResponse; // Đảm bảo bác đã tạo DTO này
+import vn.hvnh.exam.dto.CourseClassResponse;
+import vn.hvnh.exam.dto.BulkCourseClassRequest;
 import vn.hvnh.exam.entity.sql.CourseClass;
 import vn.hvnh.exam.service.CourseClassService;
 
@@ -16,20 +16,20 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/faculty-admin/course-classes")
-@RequiredArgsConstructor
 public class FacultyAdminCourseController {
 
     private final CourseClassService courseClassService;
 
-    // 🔥 API MỚI: Lấy danh sách lớp học phần (Giải quyết lỗi 405)
+    public FacultyAdminCourseController(CourseClassService courseClassService) {
+        this.courseClassService = courseClassService;
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('FACULTY_ADMIN')")
     public ResponseEntity<List<CourseClassResponse>> getAllClasses() {
-        // Trả về danh sách lớp thuộc khoa của người đang đăng nhập
         return ResponseEntity.ok(courseClassService.getAllClassesByFaculty());
     }
 
-    // API: Trưởng khoa tạo lớp học phần đơn lẻ
     @PostMapping
     @PreAuthorize("hasRole('FACULTY_ADMIN')")
     public ResponseEntity<?> createCourseClass(@RequestBody CourseClassRequest request) {
@@ -45,10 +45,9 @@ public class FacultyAdminCourseController {
         }
     }
 
-    // API: Trưởng khoa tạo HÀNG LOẠT lớp học phần
     @PostMapping("/bulk")
     @PreAuthorize("hasRole('FACULTY_ADMIN')")
-    public ResponseEntity<?> createBulkCourseClasses(@RequestBody vn.hvnh.exam.dto.BulkCourseClassRequest request) {
+    public ResponseEntity<?> createBulkCourseClasses(@RequestBody BulkCourseClassRequest request) {
         try {
             List<CourseClass> createdClasses = courseClassService.createBulkCourseClasses(request);
             

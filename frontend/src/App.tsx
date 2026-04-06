@@ -19,7 +19,6 @@ import AdminSubjectManager from './modules/admin/subjects/SubjectManager';
 import AdminDashboard from './modules/admin/dashboard/AdminDashboard';
 import AdminSettings from './modules/admin/AdminSetting';
 import AdminSystemLogs from './modules/admin/AdminSystemLogs';
-import QuestionBank from './modules/teacher/questions/QuestionBank';
 import FacultyManager from './modules/admin/faculties/FacultyManager';
 import TeacherManager from './modules/faculty-admin/TeacherManager';
 import DepartmentManager from './modules/faculty-admin/DepartmentManager';
@@ -34,9 +33,10 @@ import ExamBuilder from './modules/teacher/ExamBuilder';
 import StudentDashboard from './modules/student/dashboard/StudentDashboard';
 import JoinCoursePage from './modules/student/JoinCoursePage';
 import ExamRoom from './modules/student/exam/ExamRoom';
-import FloatingAITutor from './modules/student/FloatingAITutor';
 import MyClasses from './modules/student/MyClasses';
 import SubjectStudyHub from './modules/SubjectStudyHub';
+import FlashcardLearningHub from './modules/student/flashcards/FlashcardLearningHub';
+import FlashcardReviewPage from './modules/student/flashcards/FlashcardReviewPage';
 import ExamTakingPage from './modules/student/exam/ExamTakingPage';
 import ExamReviewPage from './modules/student/exam/ExanReviewPage';
 import TeacherClasses from './modules/teacher/TeacherClasses'; 
@@ -45,13 +45,14 @@ import ExamMonitorPage from './modules/teacher/ExamMonitorPage';
 import AdminActiveExams from './modules/admin/dashboard/AdminActiveExams';
 import UserProfile from './modules/profile/UserProfile';
 import MaintenancePage from './modules/error/MaintenancePage';
+import CompetencyAnalysisPage from './modules/student/CompetencyAnalysisPage';
 
 
 const RoleRedirect = () => {
     const { user } = useAuth();
     if (!user) return <Navigate to="/login" replace />;
     
-    if (user.role === 'ADMIN') return <Navigate to="/admin/dashboard" replace />; // Cập nhật đường dẫn cho đúng
+    if (user.role === 'ADMIN') return <Navigate to="/admin/dashboard" replace />;
     if (user.role === 'FACULTY_ADMIN') return <Navigate to="/faculty-admin" replace />; 
     if (user.role === 'TEACHER') return <Navigate to="/teacher/classes" replace />;
     if (user.role === 'STUDENT') return <Navigate to="/student" replace />;
@@ -69,13 +70,10 @@ function App() {
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/login" element={<Login />} />
           
-          {/* MỞ thẻ MainLayout bao bọc TOÀN BỘ các route bên trong */}
           <Route element={<MainLayout />}>
               <Route path="/profile" element={<UserProfile />} />
               
-              {/* ========================================= */}
-              {/* 👑 --- Admin (Quản trị hệ thống) --- */}
-              {/* ========================================= */}
+              {/* ADMIN */}
               <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
                   <Route path="/admin/users"    element={<AdminUserManager />} />
@@ -87,9 +85,7 @@ function App() {
                   <Route path="/teacher/class-hub/:classId/exam/:roomId/monitor" element={<ExamMonitorPage />} />
               </Route>
               
-              {/* ========================================= */}
-              {/* 🏛️ --- Faculty Admin (Trưởng khoa) --- */}
-              {/* ========================================= */}
+              {/* FACULTY ADMIN */}
               <Route element={<ProtectedRoute allowedRoles={['FACULTY_ADMIN']} />}>
                   <Route path="/faculty-admin" element={<FacultyDashboard />} />
                   <Route path="/faculty-admin/departments" element={<DepartmentManager />} />
@@ -100,9 +96,7 @@ function App() {
                   <Route path="/faculty-admin/questions" element={<QuestionManager />} />
               </Route>
               
-              {/* ========================================= */}
-              {/* 👨‍🏫 --- Teacher (Giảng viên) --- */}
-              {/* ========================================= */}
+              {/* TEACHER */}
               <Route element={<ProtectedRoute allowedRoles={['TEACHER']} />}>
                   <Route path="/teacher" element={<Navigate to="/teacher/classes" replace />} /> 
                   <Route path="/teacher/classes" element={<TeacherClasses />} />
@@ -114,11 +108,15 @@ function App() {
                   <Route path="/teacher/exam-builder" element={<ExamBuilder />} />
               </Route>
 
-              {/* ========================================= */}
-              {/* 🎓 --- Student (Sinh viên) --- */}
-              {/* ========================================= */}
+              {/* STUDENT */}
               <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
                   <Route path="/student" element={<StudentDashboard />} />
+                  <Route path="/student/documents" element={<StudentDashboard activeTabDefault="documents" />} />
+                  <Route path="/student/flashcards" element={<FlashcardLearningHub />} />
+                  <Route path="/student/flashcards/review" element={<FlashcardReviewPage />} />
+                  <Route path="/student/practice" element={<StudentDashboard activeTabDefault="practice" />} />
+                  <Route path="/student/analytics" element={<StudentDashboard activeTabDefault="analytics" />} />
+                  <Route path="/student/competency-analysis" element={<CompetencyAnalysisPage />} />
                   <Route path="/student/join-course" element={<JoinCoursePage />} />
                   <Route path="/student/exam-room" element={<ExamRoom />} />
                   <Route path="/student/class-hub/:classId" element={<SubjectStudyHub />} />
@@ -126,8 +124,6 @@ function App() {
                   <Route path="/student/exam-taking/:attemptId" element={<ExamTakingPage />} />
                   <Route path="/student/exam-review/:attemptId" element={<ExamReviewPage />} />
               </Route>
-
-          {/* ĐÓNG thẻ MainLayout ở cuối cùng */}
           </Route>
               
           <Route path="/" element={<RoleRedirect />} />

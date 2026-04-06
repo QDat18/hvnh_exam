@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -26,10 +25,10 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/teacher/study-hub")
-@RequiredArgsConstructor
 public class TeacherStudyController {
 
     private final StudentDocumentRepository documentRepo;
@@ -39,8 +38,18 @@ public class TeacherStudyController {
     private final CourseClassStudentRepository courseClassStudentRepository;
     private final ExamRoomRepository examRoomRepository;
     private final UserAttemptRepository userAttemptRepository;
-    // Nếu bác có service lưu file (Cloudinary/S3/Local) thì inject vào đây
     private final FileStorageService fileStorageService;
+
+    public TeacherStudyController(StudentDocumentRepository documentRepo, SubjectRepository subjectRepository, UserRepository userRepository, CourseClassRepository courseClassRepository, CourseClassStudentRepository courseClassStudentRepository, ExamRoomRepository examRoomRepository, UserAttemptRepository userAttemptRepository, FileStorageService fileStorageService) {
+        this.documentRepo = documentRepo;
+        this.subjectRepository = subjectRepository;
+        this.userRepository = userRepository;
+        this.courseClassRepository = courseClassRepository;
+        this.courseClassStudentRepository = courseClassStudentRepository;
+        this.examRoomRepository = examRoomRepository;
+        this.userAttemptRepository = userAttemptRepository;
+        this.fileStorageService = fileStorageService;
+    }
 
     @PostMapping("/upload-material")
     @PreAuthorize("hasAuthority('TEACHER')")
@@ -49,29 +58,24 @@ public class TeacherStudyController {
             @RequestParam("subjectId") UUID subjectId,
             Principal principal) {
         try {
-            // Lấy thông tin giảng viên đang đăng nhập
             User teacher = userRepository.findByEmail(principal.getName())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy giảng viên"));
 
             Subject subject = subjectRepository.findById(subjectId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy môn học"));
 
-            // 1. Upload file và lấy URL (Giả lập URL, bác thay bằng hàm upload thực tế của bác nhé)
             String fileUrl = fileStorageService.uploadFile(file);
-            // String fileUrl = "https://example.com/mock-file.pdf"; 
 
-            // 2. Lưu vào DB với cờ uploaderRole = "TEACHER"
             StudentDocument doc = new StudentDocument();
             doc.setDocumentTitle(file.getOriginalFilename());
             doc.setFileUrl(fileUrl);
             doc.setSubjectId(subject.getId());
-            doc.setStudentId(teacher.getId()); // Nối với User là Giảng viên
-            doc.setUploaderRole("TEACHER"); // ĐÁNH DẤU LÀ TÀI LIỆU CHÍNH THỐNG
+            doc.setStudentId(teacher.getId());
+            doc.setUploaderRole("TEACHER");
             doc.setUploadedAt(LocalDateTime.now());
             doc.setProcessingStatus("COMPLETED"); 
 
             documentRepo.save(doc);
-            
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
@@ -90,7 +94,6 @@ public class TeacherStudyController {
             User teacher = userRepository.findByEmail(principal.getName())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy giảng viên"));
 
-            // Lấy các lớp mà giảng viên này được gán
             List<CourseClass> myClasses = courseClassRepository.findByTeacher_Id(teacher.getId());
 
             List<Map<String, Object>> classCards = myClasses.stream().map(cc -> {
@@ -99,7 +102,6 @@ public class TeacherStudyController {
                 map.put("name", cc.getClassName());
                 map.put("code", cc.getClassCode());
                 
-                // Đếm số sinh viên trong lớp
                 long studentCount = courseClassStudentRepository.countByCourseClass_Id(cc.getId());
                 map.put("studentCount", studentCount);
                 return map;
@@ -128,10 +130,8 @@ public class TeacherStudyController {
             room.setCourseClass(courseClass);
             room.setCreatedBy(teacher);
             room.setName(payload.get("name").toString());
-            // room.setId(UUID.fromString(payload.get("examId").toString()));
             room.setDurationMinutes(Integer.parseInt(payload.get("durationMinutes").toString()));
             
-            // Xử lý thời gian (Frontend gửi lên chuẩn ISO 8601)
             if (payload.containsKey("startTime") && payload.get("startTime") != null) {
                 room.setStartTime(LocalDateTime.parse(payload.get("startTime").toString()));
             }
@@ -154,7 +154,6 @@ public class TeacherStudyController {
         }
     }
 
-    // 🔥 API LẤY DANH SÁCH PHÒNG THI TRONG LỚP (Dùng chung cho cả SV và GV)
     @GetMapping("/class-hub/{classId}/exam-rooms/{roomId}/results")
     @PreAuthorize("hasAuthority('TEACHER')")
     public ResponseEntity<?> getExamRoomResults(@PathVariable UUID classId, @PathVariable UUID roomId) {
@@ -165,9 +164,8 @@ public class TeacherStudyController {
 
             List<UserAttempt> allAttempts = userAttemptRepository.findByExamRoom_Id(roomId);
             
-            // 1. Gom nhóm các lượt thi theo ID Sinh viên
             Map<UUID, List<UserAttempt>> attemptsByStudent = allAttempts.stream()
-                .collect(java.util.stream.Collectors.groupingBy(att -> att.getUser().getId()));
+                .collect(Collectors.groupingBy(att -> att.getUser().getId()));
 
             List<Map<String, Object>> groupedResults = new java.util.ArrayList<>();
             
@@ -175,22 +173,19 @@ public class TeacherStudyController {
                 List<UserAttempt> studentAttempts = entry.getValue();
                 User student = studentAttempts.get(0).getUser();
                 
-                // Sắp xếp lượt thi: Mới nhất lên đầu
                 studentAttempts.sort((a, b) -> b.getStartTime().compareTo(a.getStartTime()));
                 
-                // Lấy điểm cao nhất của sinh viên này
                 double maxScore = studentAttempts.stream()
                     .mapToDouble(att -> att.getScore() != null ? att.getScore() : 0)
                     .max().orElse(0);
                 
-                // Trích xuất lịch sử các lần thi
                 List<Map<String, Object>> history = studentAttempts.stream().map(att -> {
                     Map<String, Object> hMap = new HashMap<>();
                     hMap.put("attemptId", att.getAttemptId());
                     hMap.put("score", att.getScore());
                     hMap.put("startTime", att.getStartTime());
                     hMap.put("endTime", att.getEndTime());
-                    hMap.put("violations", 0); // Có thể thay bằng dữ liệu vi phạm thật nếu có
+                    hMap.put("violations", 0);
                     return hMap;
                 }).toList();
 
@@ -201,12 +196,11 @@ public class TeacherStudyController {
                 map.put("bestScore", Math.round(maxScore * 100.0) / 100.0);
                 map.put("attemptCount", studentAttempts.size());
                 map.put("latestSubmitTime", studentAttempts.get(0).getEndTime());
-                map.put("history", history); // Gửi kèm lịch sử để hiện Modal
+                map.put("history", history);
                 
                 groupedResults.add(map);
             }
 
-            // Tính thống kê tổng quan dựa trên điểm cao nhất của từng người
             double classMaxScore = groupedResults.stream().mapToDouble(r -> (double) r.get("bestScore")).max().orElse(0);
             double classMinScore = groupedResults.stream().mapToDouble(r -> (double) r.get("bestScore")).min().orElse(0);
             double classAvgScore = groupedResults.stream().mapToDouble(r -> (double) r.get("bestScore")).average().orElse(0);
@@ -215,7 +209,7 @@ public class TeacherStudyController {
                     "success", true,
                     "roomName", room.getName(),
                     "totalStudents", totalStudents,
-                    "totalParticipants", groupedResults.size(), // Số lượng SV duy nhất đã nộp
+                    "totalParticipants", groupedResults.size(),
                     "statistics", Map.of("max", classMaxScore, "min", classMinScore, "avg", Math.round(classAvgScore * 100.0) / 100.0),
                     "results", groupedResults
             ));
@@ -237,10 +231,8 @@ public class TeacherStudyController {
             @RequestParam(value = "startTime", required = false) String startTime,
             @RequestParam(value = "endTime", required = false) String endTime) {
         try {
-            // 🔥 XÓA DÒNG CODE GIẢ ĐỊNH VÀ GỌI SERVICE ĐỂ UPLOAD LÊN SUPABASE
             String fileUrl = fileStorageService.uploadFile(file);
 
-            // 2. Khởi tạo Phòng thi
             CourseClass courseClass = courseClassRepository.findById(classId).orElseThrow();
             ExamRoom room = new ExamRoom();
             room.setCourseClass(courseClass);
@@ -249,12 +241,10 @@ public class TeacherStudyController {
             room.setMaxAttempts(maxAttempts);
             room.setStatus("ACTIVE");
             
-            // 3. Gắn thông tin PDF (Lúc này fileUrl sẽ là 1 cái link Supabase thật dài)
             room.setPdfUrl(fileUrl);
             room.setTotalQuestions(totalQuestions);
             room.setAnswerKey(answerKey);
 
-            // Xử lý chuỗi thời gian (nếu có)
             if (startTime != null && !startTime.isEmpty()) room.setStartTime(LocalDateTime.parse(startTime));
             if (endTime != null && !endTime.isEmpty()) room.setEndTime(LocalDateTime.parse(endTime));
 
@@ -267,7 +257,6 @@ public class TeacherStudyController {
         }
     }
 
-    // 🔥 API GIÁM SÁT KỲ THI ĐANG DIỄN RA
     @GetMapping("/class-hub/{classId}/exam-rooms/{roomId}/monitor")
     @PreAuthorize("hasAnyAuthority('TEACHER', 'ADMIN')")
     public ResponseEntity<?> monitorExamRoom(@PathVariable UUID classId, @PathVariable UUID roomId) {
@@ -275,12 +264,11 @@ public class TeacherStudyController {
             ExamRoom room = examRoomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng thi"));
             
-            // Lấy tóm tắt sinh viên của lớp
             List<vn.hvnh.exam.entity.sql.CourseClassStudent> classStudents = courseClassStudentRepository.findByCourseClass_Id(classId);
             List<UserAttempt> allAttempts = userAttemptRepository.findByExamRoom_Id(roomId);
             
             Map<UUID, List<UserAttempt>> attemptsByStudent = allAttempts.stream()
-                .collect(java.util.stream.Collectors.groupingBy(att -> att.getUser().getId()));
+                .collect(Collectors.groupingBy(att -> att.getUser().getId()));
 
             List<Map<String, Object>> monitorList = new java.util.ArrayList<>();
             
@@ -330,31 +318,27 @@ public class TeacherStudyController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    // 🔥 THÊM HOẶC SỬA HÀM NÀY TRONG TeacherStudyController.java
+
     @GetMapping("/class-hub/{classId}/exam-rooms")
-    @PreAuthorize("hasAnyAuthority('TEACHER', 'STUDENT')") // Cho phép cả GV và SV đều được gọi
+    @PreAuthorize("hasAnyAuthority('TEACHER', 'STUDENT')") 
     public ResponseEntity<?> getExamRoomsInClass(@PathVariable UUID classId, Principal principal) {
         try {
-            // Lấy thông tin user hiện tại
             User currentUser = userRepository.findByEmail(principal.getName())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
             boolean isStudent = currentUser.getRole().equals("STUDENT");
 
-            // Tìm danh sách phòng thi theo classId
             List<ExamRoom> rooms = examRoomRepository.findByCourseClass_IdOrderByStartTimeDesc(classId);
 
             List<Map<String, Object>> roomResponses = rooms.stream().map(room -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", room.getId());
                 map.put("name", room.getName());
-                // map.put("examId", room.getExamId());
                 map.put("startTime", room.getStartTime());
                 map.put("endTime", room.getEndTime());
                 map.put("durationMinutes", room.getDurationMinutes());
                 map.put("maxAttempts", room.getMaxAttempts());
                 map.put("status", room.getStatus());
 
-                // Nếu là sinh viên, lấy thêm lịch sử làm bài để Frontend biết đường hiển thị Nút "Vào thi" hay "Hiện điểm"
                 if (isStudent) {
                     List<UserAttempt> userAttempts = userAttemptRepository.findByExamRoom_Id(room.getId()).stream()
                             .filter(att -> att.getUser().getId().equals(currentUser.getId()))
@@ -369,7 +353,7 @@ public class TeacherStudyController {
 
                     map.put("highestScore", highestScore.orElse(null));
                     List<Map<String, Object>> history = userAttempts.stream()
-                            .sorted((a, b) -> b.getStartTime().compareTo(a.getStartTime())) // Mới nhất lên đầu
+                            .sorted((a, b) -> b.getStartTime().compareTo(a.getStartTime()))
                             .map(att -> {
                                 Map<String, Object> hMap = new HashMap<>();
                                 hMap.put("attemptId", att.getAttemptId());

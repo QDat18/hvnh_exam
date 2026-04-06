@@ -102,12 +102,14 @@ const SubjectStudyHub: React.FC = () => {
             studyHubApi.getClassHub(classId)
                 .then(res => setHubData(res.data))
                 .catch(err => {
-                    toast.error("Không thể tải phòng học!");
-                    navigate(-1);
+                    const errorMsg = err.response?.data?.error || err.message || "Lỗi không xác định";
+                    console.error("DEBUG CLASS HUB 500:", err.response);
+                    toast.error(`Không thể tải phòng học: ${errorMsg}`);
+                    // Instead of immediate navigate(-1), allow user to see what happened
                 });
             fetchExamRooms();
         }
-    }, [classId, navigate]);
+    }, [classId]);
 
     const fetchExamRooms = () => {
         if (!classId) return Promise.resolve();
@@ -258,68 +260,73 @@ const SubjectStudyHub: React.FC = () => {
     const isTeacher = hubData.canEdit;
 
     return (
-        <div className="bg-light min-vh-100 pb-5 animation-fade-in">
+        <div className="bg-main-light min-vh-100 pb-5 animation-fade-in" style={{ backgroundColor: '#f8fafc' }}>
             {/* HEADER */}
-            <div className="text-white py-4 py-md-5 shadow-sm" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)' }}>
-                <div className="container px-3 px-md-4" style={{ maxWidth: '1000px' }}>
-                    <button onClick={() => navigate(-1)} className="btn btn-link text-white p-0 mb-3 text-decoration-none d-flex align-items-center gap-2 opacity-75" style={{ fontSize: '0.9rem' }}>
-                        <ArrowLeft size={16} /> Quay lại
+            <div className="text-white py-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #003B70 0%, #002a50 100%)' }}>
+                <div className="container px-3 px-md-4" style={{ maxWidth: '1100px' }}>
+                    <button onClick={() => navigate(-1)} className="btn btn-link text-white p-0 mb-3 text-decoration-none d-flex align-items-center gap-2 opacity-80 hover-opacity-100 transition-all" style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                        <ArrowLeft size={16} /> Quay lại Dashboard
                     </button>
-                    <div className="d-flex justify-content-between align-items-start gap-3">
+                    <div className="d-flex justify-content-between align-items-center gap-3">
                         <div className="flex-grow-1 min-width-0">
-                            <h2 className="fw-bold mb-1 text-truncate" style={{ fontSize: 'clamp(1.2rem, 4vw, 1.8rem)' }}>{hubData.className}</h2>
-                            <p className="mb-0 opacity-75" style={{ fontSize: 'clamp(0.8rem, 2.5vw, 1rem)' }}>
+                            <div className="d-flex align-items-center gap-2 mb-1">
+                                <h2 className="fw-900 mb-0 text-truncate" style={{ fontSize: '1.6rem', letterSpacing: '-0.5px' }}>{hubData.className}</h2>
+                                {isTeacher && <span className="badge bg-warning text-dark px-2 py-1 rounded-pill fw-800" style={{ fontSize: '0.65rem' }}>GIẢNG VIÊN</span>}
+                            </div>
+                            <p className="mb-0 opacity-70 fw-600" style={{ fontSize: '0.9rem' }}>
                                 {hubData.classCode} • {hubData.teacher.name}
                             </p>
                         </div>
-                        {isTeacher && <span className="badge bg-warning text-primary px-3 py-2 rounded-pill fw-bold shadow-sm flex-shrink-0" style={{ fontSize: '0.75rem' }}>GIẢNG VIÊN</span>}
                     </div>
                 </div>
             </div>
 
-            {/* TABS NAV */}
-            <div className="bg-white border-bottom sticky-top shadow-sm" style={{ zIndex: 100 }}>
-                <div className="container px-0 px-md-3" style={{ maxWidth: '1000px' }}>
-                    <div className="d-flex overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* TABS NAV - Compact & Sticky */}
+            <div className="bg-white border-bottom sticky-top shadow-sm" style={{ zIndex: 100, top: '72px' }}>
+                <div className="container px-0 px-md-3" style={{ maxWidth: '1100px' }}>
+                    <div className="d-flex overflow-x-auto no-scrollbar">
                         {(['stream', 'materials', 'exams', 'people'] as const).map(t => (
                             <button key={t} onClick={() => setActiveTab(t)}
-                                className={`btn border-0 py-3 fw-bold flex-shrink-0 px-3 px-md-4 transition-all ${activeTab === t ? 'text-primary border-bottom border-3 border-primary' : 'text-muted'}`}
-                                style={{ fontSize: 'clamp(0.78rem, 2.5vw, 0.9rem)', whiteSpace: 'nowrap' }}>
+                                className={`btn border-0 py-3 fw-800 flex-shrink-0 px-4 transition-all position-relative ${activeTab === t ? 'text-primary' : 'text-slate-400 opacity-70 hover-opacity-100'}`}
+                                style={{ fontSize: '0.85rem' }}>
                                 {t === 'stream' ? '📋 Bảng tin' : t === 'materials' ? '📚 Tài liệu' : t === 'exams' ? '🎯 Phòng thi' : '👥 Thành viên'}
+                                {activeTab === t && <div className="position-absolute bottom-0 start-50 translate-middle-x bg-primary" style={{ width: '30px', height: '3px', borderRadius: '10px 10px 0 0' }}></div>}
                             </button>
                         ))}
                     </div>
                 </div>
             </div>
 
-            <div className="container mt-3 mt-md-4 px-3 px-md-4" style={{ maxWidth: '1000px' }}>
-                <div className="row g-3 g-md-4">
+            <div className="container mt-4 px-3 px-md-4" style={{ maxWidth: '1100px' }}>
+                <div className="row g-4">
                     <div className="col-12 col-lg-9 order-2 order-lg-1">
 
                         {activeTab === 'stream' && (
-                            <div className="d-flex flex-column gap-4 animation-slide-up mt-2">
+                            <div className="d-flex flex-column gap-4 animation-slide-up">
                                 {/* Hero Banner for Stream */}
-                                <div className="card border-0 shadow-sm rounded-4 overflow-hidden position-relative" style={{ minHeight: '160px', background: 'linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)' }}>
+                                <div className="card border-0 shadow-sm rounded-4 overflow-hidden position-relative" style={{ minHeight: '180px', background: 'linear-gradient(135deg, #003B70 0%, #0369a1 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div className="card-body p-4 d-flex flex-column justify-content-end position-relative z-1">
-                                        <h2 className="text-white fw-bolder mb-1">{hubData.subjectCode} - {hubData.subjectName}</h2>
-                                        <p className="text-white-50 mb-0 fw-medium">Lớp học trực tuyến • Học kỳ hiện tại</p>
+                                        <div className="text-white-50 small fw-800 text-uppercase tracking-wider mb-1">Hiện đang học</div>
+                                        <h2 className="text-white fw-900 mb-0" style={{ fontSize: '1.8rem', letterSpacing: '-0.5px' }}>{hubData.subjectCode} - {hubData.subjectName}</h2>
                                     </div>
-                                    {/* Ornamental Circles */}
-                                    <div className="position-absolute rounded-circle bg-white opacity-10" style={{ width: '150px', height: '150px', top: '-50px', right: '5%' }}></div>
-                                    <div className="position-absolute rounded-circle bg-white opacity-10" style={{ width: '80px', height: '80px', bottom: '10px', right: '15%' }}></div>
+                                    {/* Ornamental Elements */}
+                                    <div className="position-absolute rounded-circle bg-white opacity-5" style={{ width: '200px', height: '200px', top: '-100px', right: '-50px' }}></div>
+                                    <div className="position-absolute bg-white opacity-5" style={{ width: '2px', height: '100%', right: '80px', transform: 'rotate(45deg)' }}></div>
                                 </div>
 
                                 {/* Announcement Card */}
-                                <div className="card border shadow-sm rounded-4 p-4 bg-white">
+                                <div className="card border-0 shadow-sm rounded-4 p-4 bg-white">
                                     <div className="d-flex gap-3 align-items-start">
-                                        <div className="bg-primary bg-opacity-10 p-3 rounded-circle text-primary flex-shrink-0"><Bell size={24} /></div>
+                                        <div className="bg-primary bg-opacity-5 p-3 rounded-4 text-primary flex-shrink-0 shadow-sm"><Bell size={24} /></div>
                                         <div>
-                                            <div className="d-flex align-items-center gap-2 mb-1">
-                                                <div className="fw-bold text-dark fs-5">Chào mừng các bạn đến với lớp!</div>
-                                                <span className="badge bg-danger rounded-pill fw-medium">Mới</span>
+                                            <div className="d-flex align-items-center gap-2 mb-2">
+                                                <div className="fw-800 text-slate-800 fs-5">Chào mừng các bạn đến với lớp!</div>
+                                                <span className="badge bg-danger rounded-pill fw-800" style={{ fontSize: '0.6rem' }}>MỚI</span>
                                             </div>
-                                            <p className="text-secondary mb-2">Hệ thống đang được cập nhật các bài giảng và bài kiểm tra mới nhất. Các thông báo quan trọng sẽ xuất hiện ở đây.</p>
-                                            <small className="text-muted fw-bold d-flex align-items-center gap-1"><Clock size={12} /> Vừa xong</small>
+                                            <p className="text-slate-500 mb-3 fw-500">Hệ thống đang được cập nhật các bài giảng và bài kiểm tra mới nhất. Các thông báo quan trọng sẽ xuất hiện ở đây.</p>
+                                            <div className="d-flex align-items-center gap-1 text-slate-400 small fw-700">
+                                                <Clock size={14} /> Vừa xong
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

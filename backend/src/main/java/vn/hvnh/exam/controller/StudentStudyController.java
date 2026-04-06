@@ -1,8 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,12 +19,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/api/student/study-hub")
-@RequiredArgsConstructor
-@Slf4j
 public class StudentStudyController {
+
+    private static final Logger log = LoggerFactory.getLogger(StudentStudyController.class);
 
     private final DocumentAIProcessor aiProcessor;
     private final FlashcardService flashcardService;
@@ -46,24 +48,82 @@ public class StudentStudyController {
     private final UserAttemptRepository userAttemptRepository;
     private final AttemptAnswerRepository attemptAnswerRepository;
     private final AnswerRepository answerRepository;
+    private final CurrentUserService currentUserService;
+
+    public StudentStudyController(
+        DocumentAIProcessor aiProcessor,
+        FlashcardService flashcardService,
+        PracticeSessionService practiceSessionService,
+        StudentDocumentRepository documentRepo,
+        FlashcardRepository flashcardRepo,
+        PracticeSessionRepository sessionRepo,
+        UserRepository userRepository,
+        SubjectRepository subjectRepository,
+        CourseClassRepository courseClassRepository,
+        CourseClassStudentRepository courseClassStudentRepository,
+        QuestionRepository questionRepository,
+        LLMIntegrationService llmIntegrationService,
+        ObjectMapper objectMapper,
+        ExamRoomRepository examRoomRepository,
+        UserAttemptRepository userAttemptRepository,
+        AttemptAnswerRepository attemptAnswerRepository,
+        AnswerRepository answerRepository,
+        CurrentUserService currentUserService
+    ) {
+        this.aiProcessor = aiProcessor;
+        this.flashcardService = flashcardService;
+        this.practiceSessionService = practiceSessionService;
+        this.documentRepo = documentRepo;
+        this.flashcardRepo = flashcardRepo;
+        this.sessionRepo = sessionRepo;
+        this.userRepository = userRepository;
+        this.subjectRepository = subjectRepository;
+        this.courseClassRepository = courseClassRepository;
+        this.courseClassStudentRepository = courseClassStudentRepository;
+        this.questionRepository = questionRepository;
+        this.llmIntegrationService = llmIntegrationService;
+        this.objectMapper = objectMapper;
+        this.examRoomRepository = examRoomRepository;
+        this.userAttemptRepository = userAttemptRepository;
+        this.attemptAnswerRepository = attemptAnswerRepository;
+        this.answerRepository = answerRepository;
+        this.currentUserService = currentUserService;
+    }
 
     @GetMapping("/my-classes")
     public ResponseEntity<?> getMyClasses() {
         try {
-            UUID studentId = getCurrentUserId();
+            User student = currentUserService.getCurrentUser();
+            UUID studentId = student.getId();
             List<CourseClassStudent> joinedClasses = courseClassStudentRepository.findByStudent_Id(studentId);
             
+            // [TỐI ƯU HIỆU NĂNG]: Chống N+1 query bằng cách lấy docCount của tất cả môn học trong 1 lần
+            List<UUID> subjectIds = joinedClasses.stream()
+                .map(rel -> rel.getCourseClass().getSubject().getId())
+                .distinct()
+                .collect(Collectors.toList());
+            
+            Map<UUID, Long> docCountMap = new HashMap<>();
+            if (!subjectIds.isEmpty()) {
+                List<Object[]> docCounts = documentRepo.countDocsBySubjectIds(studentId, subjectIds);
+                for (Object[] row : docCounts) {
+                    docCountMap.put((UUID) row[0], (Long) row[1]);
+                }
+            }
+
             List<Map<String, Object>> classCards = joinedClasses.stream().map(rel -> {
                 CourseClass cc = rel.getCourseClass();
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", cc.getId()); 
                 map.put("name", cc.getClassName());
                 map.put("code", cc.getClassCode());
-                map.put("subjectId", cc.getSubject().getId());
+                
+                UUID subjId = cc.getSubject().getId();
+                map.put("subjectId", subjId);
                 map.put("teacher", cc.getTeacher() != null ? cc.getTeacher().getFullName() : "Khoa phân công");
                 
-                long docCount = documentRepo.countBySubjectIdAndStudentId(cc.getSubject().getId(), studentId);
-                map.put("totalDocs", docCount);
+                // Lấy từ Map O(1) thay vì chọc DB
+                map.put("totalDocs", docCountMap.getOrDefault(subjId, 0L));
                 
                 return map;
             }).toList();
@@ -98,37 +158,44 @@ public class StudentStudyController {
             teacherMap.put("avatar", teacher != null && teacher.getAvatarUrl() != null ? teacher.getAvatarUrl() : "");            
             hubData.put("teacher", teacherMap);
 
-            boolean isTeacherOfClass = currentUser.getRole().equals("TEACHER") && 
+            boolean isTeacherOfClass = currentUser != null && currentUser.getRole().equals("TEACHER") && 
                                        teacher != null && teacher.getId().equals(currentUserId);
-            hubData.put("userRole", currentUser.getRole());
+            hubData.put("userRole", currentUser != null ? currentUser.getRole() : "STUDENT");
             hubData.put("canEdit", isTeacherOfClass);
 
-            List<StudentDocument> officialDocs = documentRepo.findBySubjectId(courseClass.getSubject().getId()).stream()
-                    .filter(doc -> "TEACHER".equals(doc.getUploaderRole()))
-                    .toList();
-            hubData.put("materials", officialDocs);
+            UUID subjectId = (courseClass.getSubject() != null) ? courseClass.getSubject().getId() : null;
+            if (subjectId != null) {
+                List<vn.hvnh.exam.entity.sql.StudentDocument> officialDocs = documentRepo.findBySubjectId(subjectId).stream()
+                        .filter(doc -> "TEACHER".equals(doc.getUploaderRole()))
+                        .toList();
+                hubData.put("materials", officialDocs);
+            } else {
+                hubData.put("materials", new ArrayList<>());
+            }
 
             List<CourseClassStudent> classStudents = courseClassStudentRepository.findByCourseClass_Id(classId);
-            List<Map<String, Object>> studentsList = classStudents.stream().map(ccs -> {
-                User s = ccs.getStudent();
-                Map<String, Object> studentMap = new HashMap<>();
-                studentMap.put("id", s.getId());
-                studentMap.put("fullName", s.getFullName());
-                
-                String studentCode = s.getStudentId();
-                if (studentCode == null || studentCode.trim().isEmpty()) {
-                    if (s.getEmail() != null && s.getEmail().contains("@")) {
-                        studentCode = s.getEmail().split("@")[0].toUpperCase(); 
-                    } else {
-                        studentCode = "Chưa cập nhật";
+            List<Map<String, Object>> studentsList = classStudents.stream()
+                .filter(ccs -> ccs.getStudent() != null)
+                .map(ccs -> {
+                    User s = ccs.getStudent();
+                    Map<String, Object> studentMap = new HashMap<>();
+                    studentMap.put("id", s.getId());
+                    studentMap.put("fullName", s.getFullName() != null ? s.getFullName() : "Vô danh");
+                    
+                    String studentCode = s.getStudentId();
+                    if (studentCode == null || studentCode.trim().isEmpty()) {
+                        if (s.getEmail() != null && s.getEmail().contains("@")) {
+                            studentCode = s.getEmail().split("@")[0].toUpperCase(); 
+                        } else {
+                            studentCode = "N/A";
+                        }
                     }
-                }
-                studentMap.put("studentId", studentCode);
-                studentMap.put("email", s.getEmail());
-                studentMap.put("avatar", s.getAvatarUrl() != null ? s.getAvatarUrl() : 
-                        "https://api.dicebear.com/9.x/initials/svg?seed=" + s.getFullName());
-                return studentMap;
-            }).toList();
+                    studentMap.put("studentId", studentCode);
+                    studentMap.put("email", s.getEmail());
+                    studentMap.put("avatar", s.getAvatarUrl() != null ? s.getAvatarUrl() : 
+                            "https://api.dicebear.com/9.x/initials/svg?seed=" + (s.getFullName() != null ? s.getFullName() : "User"));
+                    return studentMap;
+                }).toList();
             hubData.put("memberCount", studentsList.size());
             hubData.put("students", studentsList);
 
@@ -167,13 +234,38 @@ public class StudentStudyController {
         }
     }
 
+    // API MỚI: Lấy danh sách môn học cho Tab Tài Liệu (Cực nhẹ, không đếm câu hỏi)
+    @GetMapping("/documents/subjects")
+    public ResponseEntity<?> getDocumentSubjects() {
+        try {
+            UUID studentId = getCurrentUserId();
+            List<CourseClassStudent> joinedClasses = courseClassStudentRepository.findByStudent_Id(studentId);
+            
+            List<Map<String, Object>> subjects = joinedClasses.stream()
+                .filter(rel -> rel.getCourseClass() != null && rel.getCourseClass().getSubject() != null)
+                .map(rel -> rel.getCourseClass().getSubject())
+                .distinct() // Loại bỏ các môn học bị trùng
+                .map(subject -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("subjectId", subject.getId());
+                    map.put("subjectName", subject.getSubjectName());
+                    return map;
+                })
+                .toList();
+                
+            return ResponseEntity.ok(subjects);
+        } catch (Exception e) {
+            log.error("Error getting document subjects", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
     @PostMapping("/practice/generate")
     public ResponseEntity<?> generatePracticeQuiz(@RequestBody GeneratePracticeRequest request) {
         try {
             UUID studentId = getCurrentUserId();
             PracticeSessionResponse session = practiceSessionService.generatePracticeSession(
-                studentId, request.getSubjectId(), request.getNumQuestions(),
-                request.getDifficultyDistribution(), request.getMode()
+                studentId, request.getSubjectId(), request.getNumQuestions() != null ? request.getNumQuestions() : 20,
+                request.getDifficultyDistribution(), request.getMode() != null ? request.getMode() : "RANDOM"
             );
             return ResponseEntity.ok(session);
         } catch (Exception e) {
@@ -205,7 +297,35 @@ public class StudentStudyController {
             UUID studentId = getCurrentUserId();
             LocalDateTime fromDate = LocalDateTime.now().minusDays(days);
             List<PracticeSession> sessions = sessionRepo.findRecentSessions(studentId, fromDate);
-            return ResponseEntity.ok(sessions);
+            
+            // [TỐI ƯU HIỆU NĂNG]: Bulk lookup Subject Name tránh N+1 loop
+            Set<UUID> subjectIdsToFetch = sessions.stream()
+                .map(PracticeSession::getSubjectId)
+                .collect(Collectors.toSet());
+            
+            Map<UUID, String> subjectNameMap = subjectRepository.findAllById(subjectIdsToFetch).stream()
+                .collect(Collectors.toMap(Subject::getId, Subject::getSubjectName));
+            
+            List<Map<String, Object>> history = sessions.stream()
+                .map(session -> {
+                    Map<String, Object> dto = new HashMap<>();
+                    dto.put("id", session.getSessionId());
+                    
+                    // Lấy O(1) từ Map
+                    String subjName = subjectNameMap.getOrDefault(session.getSubjectId(), "Unknown");
+                    dto.put("subjectName", subjName);
+                    
+                    dto.put("score", session.getScore() != null ? session.getScore() : 0.0);
+                    dto.put("totalQuestions", session.getTotalQuestions() != null ? session.getTotalQuestions() : 0);
+                    dto.put("correctAnswers", session.getCorrectAnswers() != null ? session.getCorrectAnswers() : 0);
+                    dto.put("completedAt", session.getCompletedAt());
+                    dto.put("duration", session.getTimeSpentSeconds() != null ? session.getTimeSpentSeconds().longValue() : 0L);
+                    
+                    return dto;
+                })
+                .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(history);
         } catch (Exception e) {
             log.error("Error getting practice history", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -213,80 +333,105 @@ public class StudentStudyController {
     }
 
     @PostMapping("/documents/upload")
+    @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<?> uploadDocument(
-        @RequestParam("file") MultipartFile file,
-        @RequestParam("subjectId") UUID subjectId,
-        @RequestParam(value = "documentType", defaultValue = "TEXTBOOK") String documentType,
-        @RequestParam(value = "enableAI", defaultValue = "true") boolean enableAI
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("subjectId") UUID subjectId,
+            @RequestParam(defaultValue = "TEXTBOOK") String documentType,
+            @RequestParam(defaultValue = "true") boolean enableAI
     ) {
         try {
             UUID studentId = getCurrentUserId();
-            if (file.isEmpty()) return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
-            StudentDocument doc = aiProcessor.uploadAndProcess(file, studentId, subjectId, documentType, enableAI);
-            return ResponseEntity.ok(Map.of("document", doc, "message", "Document uploaded successfully"));
+            vn.hvnh.exam.entity.sql.StudentDocument doc = aiProcessor.createDocumentRecord(
+                file, studentId, subjectId, documentType, enableAI
+            );
+            
+            // Trigger async processing via proxy
+            aiProcessor.processAsync(file, doc);
+            
+            return ResponseEntity.ok(Map.of("document", doc));
         } catch (Exception e) {
             log.error("Error uploading document", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
+    @PostMapping("/study-hub/flashcards/generate")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<?> generateFlashcards(@RequestBody GenerateFlashcardsRequest request) {
+        try {
+            vn.hvnh.exam.entity.sql.StudentDocument doc = documentRepo.findById(request.getStudentDocId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tài liệu"));
+            
+            // Trigger AI generation with custom count
+            aiProcessor.generateAndSaveFlashcards(doc.getExtractedText(), doc, request.getCount());
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Đang tạo thêm flashcard, vui lòng đợi trong giây lát!"
+            ));
+        } catch (Exception e) {
+            log.error("Error generating flashcards", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
     @GetMapping("/documents")
-    public ResponseEntity<?> getMyDocuments(@RequestParam(required = false) UUID subjectId) {
+    public ResponseEntity<?> getMyDocuments(
+        @RequestParam(required = false) UUID subjectId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
         try {
             UUID studentId = getCurrentUserId();
-            List<StudentDocument> documents;
+            Pageable pageable = PageRequest.of(page, size);
+            Page<vn.hvnh.exam.entity.sql.StudentDocument> docPage;
+            
             if (subjectId != null) {
-                documents = documentRepo.findByStudentIdAndSubjectIdOrderByUploadedAtDesc(studentId, subjectId);
+                docPage = documentRepo.findByStudentIdAndSubjectIdOrderByUploadedAtDesc(studentId, subjectId, pageable);
             } else {
-                documents = documentRepo.findByStudentIdOrderByUploadedAtDesc(studentId);
+                docPage = documentRepo.findByStudentIdOrderByUploadedAtDesc(studentId, pageable);
             }
-            return ResponseEntity.ok(Map.of("documents", documents));
+            
+            return ResponseEntity.ok(Map.of(
+                "documents", docPage.getContent(),
+                "currentPage", docPage.getNumber(),
+                "totalElements", docPage.getTotalElements(),
+                "totalPages", docPage.getTotalPages(),
+                "hasNext", docPage.hasNext()
+            ));
         } catch (Exception e) {
             log.error("Error getting documents", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    @GetMapping("/documents/{documentId}/status")
-    public ResponseEntity<?> getDocumentStatus(@PathVariable UUID documentId) {
-        try {
-            StudentDocument doc = documentRepo.findById(documentId).orElseThrow(() -> new RuntimeException("Document not found"));
-            return ResponseEntity.ok(Map.of("status", doc.getProcessingStatus(), "processedAt", doc.getProcessedAt()));
-        } catch (Exception e) {
-            log.error("Error getting document status", e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    @DeleteMapping("/documents/{docId}")
-    public ResponseEntity<?> deleteDocument(@PathVariable UUID docId) {
-        try {
-            StudentDocument doc = documentRepo.findById(docId).orElseThrow(() -> new RuntimeException("Không tìm thấy tài liệu"));
-            documentRepo.delete(doc);
-            documentRepo.flush(); 
-            return ResponseEntity.ok(Map.of("message", "Đã xóa tài liệu thành công"));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Không thể xóa tài liệu lúc này: " + e.getMessage()));
-        }
-    }
-
     @GetMapping("/flashcards")
     public ResponseEntity<?> getFlashcards(
         @RequestParam(required = false) UUID documentId,
-        @RequestParam(required = false) UUID subjectId
+        @RequestParam(required = false) UUID subjectId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
     ) {
         try {
             UUID studentId = getCurrentUserId();
-            List<Flashcard> flashcards;
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Flashcard> cardPage;
+
             if (documentId != null) {
-                flashcards = flashcardRepo.findByStudentDocumentIdOrderByCreatedAtDesc(documentId);
+                cardPage = flashcardRepo.findByStudentDocumentIdOrderByCreatedAtDesc(documentId, pageable);
             } else if (subjectId != null) {
-                flashcards = flashcardRepo.findByStudentIdAndSubjectIdOrderByCreatedAtDesc(studentId, subjectId);
+                cardPage = flashcardRepo.findByStudentIdAndSubjectIdOrderByCreatedAtDesc(studentId, subjectId, pageable);
             } else {
-                flashcards = flashcardRepo.findByStudentIdOrderByCreatedAtDesc(studentId);
+                cardPage = flashcardRepo.findByStudentIdOrderByCreatedAtDesc(studentId, pageable);
             }
-            return ResponseEntity.ok(Map.of("flashcards", flashcards));
+
+            return ResponseEntity.ok(Map.of(
+                "flashcards", cardPage.getContent(),
+                "currentPage", cardPage.getNumber(),
+                "totalElements", cardPage.getTotalElements(),
+                "totalPages", cardPage.getTotalPages(),
+                "hasNext", cardPage.hasNext()
+            ));
         } catch (Exception e) {
             log.error("Error getting flashcards", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -312,6 +457,27 @@ public class StudentStudyController {
         }
     }
 
+    @GetMapping("/flashcards/subject-counts")
+    public ResponseEntity<?> getFlashcardSubjectCounts() {
+        log.info("📊 Fetching flashcard subject counts for current student");
+        try {
+            UUID studentId = getCurrentUserId();
+            List<Object[]> counts = flashcardRepo.countFlashcardsBySubject(studentId);
+            
+            Map<UUID, Long> countMap = counts.stream()
+                .filter(row -> row[0] != null)
+                .collect(Collectors.toMap(
+                    row -> (UUID) row[0],
+                    row -> (Long) row[1]
+                ));
+                
+            return ResponseEntity.ok(countMap);
+        } catch (Exception e) {
+            log.error("Error getting flashcard subject counts", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/flashcards/{flashcardId}/review")
     public ResponseEntity<?> reviewFlashcard(
         @PathVariable UUID flashcardId,
@@ -326,23 +492,380 @@ public class StudentStudyController {
         }
     }
 
-    @GetMapping("/analytics")
-    public ResponseEntity<?> getAnalytics(@RequestParam UUID subjectId) {
+    @PostMapping("/flashcards")
+    public ResponseEntity<?> createFlashcard(@RequestBody CreateFlashcardRequest request) {
         try {
             UUID studentId = getCurrentUserId();
-            Object practiceStats = sessionRepo.getPracticeStats(studentId);
-            Object flashcardStats = flashcardRepo.getFlashcardStats(studentId);
-            return ResponseEntity.ok(Map.of("practiceStats", practiceStats, "flashcardStats", flashcardStats));
+            Flashcard card = Flashcard.builder()
+                .studentId(studentId)
+                .studentDocumentId(request.getStudentDocumentId())
+                .subjectId(request.getSubjectId())
+                .frontText(request.getFrontText())
+                .backText(request.getBackText())
+                .difficulty(request.getDifficulty() != null ? request.getDifficulty() : "MEDIUM")
+                .proficiencyLevel("NEW")
+                .createdBy("MANUAL")
+                .createdAt(LocalDateTime.now())
+                .build();
+            
+            Flashcard saved = flashcardRepo.save(card);
+            return ResponseEntity.ok(saved);
         } catch (Exception e) {
-            log.error("Error getting analytics", e);
+            log.error("Error creating flashcard", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/flashcards/{id}")
+    public ResponseEntity<?> updateFlashcard(@PathVariable UUID id, @RequestBody UpdateFlashcardRequest request) {
+        try {
+            Flashcard card = flashcardRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Flashcard not found"));
+            
+            card.setFrontText(request.getFrontText());
+            card.setBackText(request.getBackText());
+            if (request.getDifficulty() != null) {
+                card.setDifficulty(request.getDifficulty());
+            }
+            
+            Flashcard updated = flashcardRepo.save(card);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            log.error("Error updating flashcard", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/flashcards/{id}")
+    public ResponseEntity<?> deleteFlashcard(@PathVariable UUID id) {
+        try {
+            flashcardRepo.deleteById(id);
+            return ResponseEntity.ok(Map.of("message", "Đã xóa thẻ nhớ thành công"));
+        } catch (Exception e) {
+            log.error("Error deleting flashcard", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/flashcards/stats-detail")
+    public ResponseEntity<?> getDetailedStats() {
+        try {
+            User user = currentUserService.getCurrentUser();
+            if (user == null) throw new RuntimeException("Tài khoản chưa được xác thực!");
+            UUID studentId = user.getId();
+            LocalDate today = LocalDate.now();
+            
+            long dueToday = flashcardRepo.countDueForReview(studentId, today);
+            long newCardsCount = flashcardRepo.countNewCards(studentId);
+            Object rawStats = flashcardRepo.getFlashcardStats(studentId);
+            
+            // Lấy streak từ PracticeSession (đếm sơ bộ số phiên gần đây)
+            long streakCount = sessionRepo.countByStudentId(studentId) > 0 ? 1 : 0; 
+
+            // Chuyển đổi Object[] từ JPA query sang Map để Frontend dễ truy cập
+            Map<String, Object> overallStats = new HashMap<>();
+            overallStats.put("streakCount", streakCount);
+            
+            if (rawStats instanceof Object[]) {
+                Object[] arr = (Object[]) rawStats;
+                overallStats.put("total", arr.length > 0 && arr[0] != null ? arr[0] : 0);
+                overallStats.put("newCards", arr.length > 1 && arr[1] != null ? arr[1] : 0);
+                overallStats.put("learning", arr.length > 2 && arr[2] != null ? arr[2] : 0);
+                overallStats.put("known", arr.length > 3 && arr[3] != null ? arr[3] : 0);
+                overallStats.put("mastered", arr.length > 4 && arr[4] != null ? arr[4] : 0);
+                overallStats.put("avgReviews", arr.length > 5 && arr[5] != null ? arr[5] : 0);
+            } else {
+                overallStats.put("total", 0);
+                overallStats.put("newCards", 0);
+                overallStats.put("mastered", 0);
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "dueToday", dueToday,
+                "newCards", newCardsCount,
+                "overallStats", overallStats
+            ));
+        } catch (Exception e) {
+            log.error("Error getting detailed flashcard stats", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     private UUID getCurrentUserId() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = currentUserService.getCurrentUser();
+        if (user == null) throw new RuntimeException("Tài khoản chưa được xác thực!");
         return user.getId(); 
+    }
+
+    /**
+     * GLOBAL SEARCH - TÌM KIẾM TOÀN CẦU
+     */
+    @GetMapping("/search")
+    public ResponseEntity<?> globalSearch(
+        @RequestParam String query,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        try {
+            if (query == null || query.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Từ khóa tìm kiếm không được để trống"));
+            }
+            
+            UUID studentId = getCurrentUserId();
+            String lowerQuery = query.toLowerCase();
+            
+            // [TỐI ƯU HIỆU NĂNG - QUAN TRỌNG]: 
+            // 1. Dùng Database Level search (searchByTitle) thay vì findAll() rác RAM.
+            // 2. Chặn Limit query PageRequest.of(0, 500) để không làm nổ bộ nhớ.
+            
+            // Tìm tài liệu
+            List<Map<String, Object>> documents = documentRepo.searchByTitle(studentId, lowerQuery)
+                .stream()
+                .limit(5)
+                .map(doc -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", doc.getStudentDocId());
+                    result.put("type", "document");
+                    result.put("title", doc.getDocumentTitle());
+                    result.put("description", doc.getDocumentTitle());
+                    result.put("icon", "📄");
+                    result.put("url", "/study-hub/document/" + doc.getStudentDocId());
+                    return result;
+                })
+                .toList();
+            
+            // Tìm flashcard (Bọc Page Limit 500 bản ghi thay vì .findAll)
+            List<Map<String, Object>> flashcards = flashcardRepo.findByStudentIdOrderByCreatedAtDesc(studentId, PageRequest.of(0, 500))
+                .getContent()
+                .stream()
+                .filter(card -> (card.getFrontText() != null && card.getFrontText().toLowerCase().contains(lowerQuery)) ||
+                               (card.getBackText() != null && card.getBackText().toLowerCase().contains(lowerQuery)))
+                .limit(5)
+                .map(card -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", card.getFlashcardId());
+                    result.put("type", "flashcard");
+                    result.put("title", card.getFrontText() != null ? card.getFrontText().substring(0, Math.min(card.getFrontText().length(), 50)) : "Flashcard");
+                    result.put("description", card.getBackText() != null ? card.getBackText().substring(0, Math.min(card.getBackText().length(), 100)) : "");
+                    result.put("icon", "🎴");
+                    result.put("url", "/study-hub/learn/" + card.getStudentDocumentId());
+                    return result;
+                })
+                .toList();
+            
+            // Tìm câu hỏi (Limit 500)
+            List<Map<String, Object>> questions = questionRepository.findAll(PageRequest.of(0, 500))
+                .getContent()
+                .stream()
+                .filter(q -> q.getQuestionText() != null && q.getQuestionText().toLowerCase().contains(lowerQuery))
+                .limit(4)
+                .map(q -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", q.getQuestionId());
+                    result.put("type", "question");
+                    result.put("title", q.getQuestionText().length() > 50 ? q.getQuestionText().substring(0, 50) + "..." : q.getQuestionText());
+                    result.put("description", q.getSubject() != null ? "Môn: " + q.getSubject().getSubjectName() : "Câu hỏi");
+                    result.put("icon", "❓");
+                    result.put("url", "/study-hub/questions/" + q.getQuestionId());
+                    return result;
+                })
+                .toList();
+            
+            // Tìm môn học (Thường ít nên findAll an toàn)
+            List<Map<String, Object>> subjects = subjectRepository.findAll()
+                .stream()
+                .filter(s -> (s.getSubjectName() != null && s.getSubjectName().toLowerCase().contains(lowerQuery)) ||
+                            (s.getSubjectCode() != null && s.getSubjectCode().toLowerCase().contains(lowerQuery)))
+                .limit(4)
+                .map(s -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", s.getId());
+                    result.put("type", "subject");
+                    result.put("title", s.getSubjectName());
+                    result.put("description", "Mã: " + s.getSubjectCode());
+                    result.put("icon", "📚");
+                    result.put("url", "/study-hub/subject/" + s.getId());
+                    return result;
+                })
+                .toList();
+            
+            // Tìm lớp học đã tham gia
+            List<Map<String, Object>> classes = courseClassStudentRepository.findByStudent_Id(studentId)
+                .stream()
+                .filter(ccs -> ccs.getCourseClass() != null && ccs.getCourseClass().getClassName() != null && 
+                              ccs.getCourseClass().getClassName().toLowerCase().contains(lowerQuery))
+                .limit(4)
+                .map(ccs -> {
+                    CourseClass cc = ccs.getCourseClass();
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", cc.getId());
+                    result.put("type", "class");
+                    result.put("title", cc.getClassName());
+                    result.put("description", "Mã lớp: " + cc.getClassCode());
+                    result.put("icon", "🏫");
+                    result.put("url", "/study-hub/class/" + cc.getId());
+                    return result;
+                })
+                .toList();
+            
+            List<Map<String, Object>> allResults = new ArrayList<>();
+            allResults.addAll(documents);
+            allResults.addAll(flashcards);
+            allResults.addAll(questions);
+            allResults.addAll(subjects);
+            allResults.addAll(classes);
+            
+            int totalResults = allResults.size();
+            int startIdx = page * size;
+            int endIdx = Math.min(startIdx + size, totalResults);
+            
+            List<Map<String, Object>> pagedResults = new ArrayList<>();
+            if (startIdx < totalResults) {
+                pagedResults = allResults.subList(startIdx, endIdx);
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "query", query,
+                "results", pagedResults,
+                "totalResults", totalResults,
+                "currentPage", page,
+                "pageSize", size,
+                "totalPages", (totalResults + size - 1) / size
+            ));
+        } catch (Exception e) {
+            log.error("Error in global search", e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Lỗi tìm kiếm: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * COMPETENCY ANALYSIS - PHÂN TÍCH HỒ SƠ NĂNG LỰC BẰNG AI
+     */
+    @GetMapping("/competency-analysis")
+    public ResponseEntity<?> getCompetencyAnalysis() {
+        try {
+            User student = currentUserService.getCurrentUser();
+            UUID studentId = student.getId();
+            
+            // Lấy tổng số thẻ và số thẻ đã thuộc (MASTERED)
+            long totalFlashcards = flashcardRepo.countByStudentId(studentId);
+            long masteredFlashcards = flashcardRepo.countByStudentIdAndProficiencyLevel(studentId, "MASTERED");
+            
+            long totalQuestionsAnswered = sessionRepo.countByStudentId(studentId);
+            
+            // [TỐI ƯU HIỆU NĂNG]: Thay vì subjectRepository.findAll() (hàng trăm môn), 
+            // chỉ lấy các môn sinh viên đã thực sự có lượt học/thi.
+            List<Object[]> subjectStats = sessionRepo.getAverageScoresGroupBySubject(studentId);
+            
+            Double totalScoreSum = 0.0;
+            int countValidSubjects = 0;
+            List<Map<String, Object>> subjectAnalyses = new ArrayList<>();
+            
+            for (Object[] stat : subjectStats) {
+                UUID subjectId = (UUID) stat[0];
+                String subjectName = (String) stat[1];
+                Double avgScore = (Double) stat[2];
+                
+                if (avgScore != null && avgScore > 0) {
+                    totalScoreSum += avgScore;
+                    countValidSubjects++;
+                    
+                    Map<String, Object> analysis = new HashMap<>();
+                    analysis.put("subjectName", subjectName);
+                    
+                    // Questions in bank for this subject (có thể cache hoặc query 1 lần)
+                    Long questionsInBank = questionRepository.countBySubject_Id(subjectId);
+                    analysis.put("questionsAttempted", questionsInBank); 
+                    analysis.put("accuracy", avgScore);
+                    
+                    String level = avgScore >= 80 ? "MASTERY" : 
+                                   avgScore >= 60 ? "PROFICIENT" : 
+                                   avgScore >= 40 ? "DEVELOPING" : "BEGINNING";
+                    analysis.put("performanceLevel", level);
+                    subjectAnalyses.add(analysis);
+                }
+            }
+            
+            Double overallScore = countValidSubjects > 0 ? (totalScoreSum / countValidSubjects) : 0.0;
+            String competencyLevel = overallScore >= 80 ? "EXCELLENT" : overallScore >= 60 ? "GOOD" : overallScore >= 40 ? "AVERAGE" : "NEEDS_IMPROVEMENT";
+            
+            // Tạo prompt cho AI phân tích
+            StringBuilder analysisPrompt = new StringBuilder();
+            analysisPrompt.append("Phân tích hồ sơ năng lực của sinh viên dựa vào dữ liệu sau:\n");
+            analysisPrompt.append("- Tên: ").append(student.getFullName()).append("\n");
+            analysisPrompt.append("- Điểm trung bình: ").append(String.format("%.1f%%", overallScore)).append("\n");
+            analysisPrompt.append("- Tổng thẻ đã thuộc: ").append(masteredFlashcards).append("/").append(totalFlashcards).append("\n");
+            analysisPrompt.append("- Tổng câu hỏi đã làm: ").append(totalQuestionsAnswered).append("\n\n");
+            
+            analysisPrompt.append("Phân tích theo từng môn:\n");
+            subjectAnalyses.forEach(a -> {
+                analysisPrompt.append("- ").append(a.get("subjectName")).append(": ")
+                    .append(String.format("%.1f%%", (Double) a.get("accuracy")))
+                    .append(" (").append(a.get("performanceLevel")).append(")\n");
+            });
+            
+            analysisPrompt.append("\nHãy cho 3 điểm mạnh, 3 điểm yếu và lộ trình cải thiện ngắn gọn.");
+            
+            String aiAnalysis = llmIntegrationService.callAI(analysisPrompt.toString());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("studentName", student.getFullName());
+            response.put("overallScore", overallScore);
+            response.put("competencyLevel", competencyLevel);
+            response.put("subjectAnalyses", subjectAnalyses);
+            response.put("strengths", extractStrengths(aiAnalysis));
+            response.put("weaknesses", extractWeaknesses(aiAnalysis));
+            response.put("aiRecommendation", aiAnalysis);
+            response.put("totalFlashcardsReviewed", masteredFlashcards);
+            response.put("totalFlashcardsCount", totalFlashcards);
+            response.put("totalQuestionsAnswered", totalQuestionsAnswered);
+            response.put("averageAccuracy", overallScore);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error analyzing competency", e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Lỗi phân tích năng lực: " + e.getMessage()));
+        }
+    }
+    
+    private List<String> extractStrengths(String aiText) {
+        List<String> strengths = new ArrayList<>();
+        try {
+            int idx = aiText.toLowerCase().indexOf("điểm mạnh");
+            if (idx > 0) {
+                String section = aiText.substring(idx, Math.min(idx + 500, aiText.length()));
+                String[] lines = section.split("\n");
+                for (String line : lines) {
+                    if (line.contains("-") && !line.toLowerCase().contains("yếu")) {
+                        strengths.add(line.replaceAll("^[^-]*-", "").trim());
+                        if (strengths.size() >= 4) break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error extracting strengths", e);
+        }
+        return strengths.isEmpty() ? List.of("Năng lực tổng quát", "Khả năng học tập") : strengths;
+    }
+    
+    private List<String> extractWeaknesses(String aiText) {
+        List<String> weaknesses = new ArrayList<>();
+        try {
+            int idx = aiText.toLowerCase().indexOf("yếu");
+            if (idx > 0) {
+                String section = aiText.substring(idx, Math.min(idx + 500, aiText.length()));
+                String[] lines = section.split("\n");
+                for (String line : lines) {
+                    if (line.contains("-") && !line.toLowerCase().contains("mạnh")) {
+                        weaknesses.add(line.replaceAll("^[^-]*-", "").trim());
+                        if (weaknesses.size() >= 4) break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error extracting weaknesses", e);
+        }
+        return weaknesses.isEmpty() ? List.of("Cần tăng cường ôn tập", "Nên làm thêm bài tập") : weaknesses;
     }
 
     @PostMapping("/documents/{docId}/chat")
@@ -350,7 +873,7 @@ public class StudentStudyController {
             @PathVariable UUID docId,
             @RequestBody Map<String, String> request) {
         String userMessage = request.get("message");
-        StudentDocument doc = documentRepo.findById(docId).orElseThrow(() -> new RuntimeException("Document not found"));
+        vn.hvnh.exam.entity.sql.StudentDocument doc = documentRepo.findById(docId).orElseThrow(() -> new RuntimeException("Document not found"));
         String prompt = String.format(
                 "Bạn là một Gia sư Đại học xuất sắc. Sinh viên đang học tài liệu mang tên '%s'. Sinh viên hỏi bạn: '%s'. Hãy trả lời bằng tiếng Việt, ngắn gọn, súc tích, dễ hiểu. Nếu có thể hãy cho ví dụ minh họa.",
                 doc.getDocumentTitle(), userMessage
@@ -377,7 +900,7 @@ public class StudentStudyController {
             StringBuilder combinedContent = new StringBuilder();
             int maxCharsPerDoc = 20000 / Math.max(1, docIds.size());
             for (String id : docIds) {
-                StudentDocument doc = documentRepo.findById(UUID.fromString(id)).orElse(null);
+                vn.hvnh.exam.entity.sql.StudentDocument doc = documentRepo.findById(UUID.fromString(id)).orElse(null);
                 if (doc != null && doc.getExtractedText() != null) {
                     combinedContent.append("--- BẮT ĐẦU TÀI LIỆU: ").append(doc.getDocumentTitle()).append(" ---\n");
                     String extractedText = doc.getExtractedText();
@@ -463,7 +986,7 @@ public class StudentStudyController {
     // 🔥 LUỒNG THAM GIA THI CỦA SINH VIÊN 
     // =========================================================================
 
-@PostMapping("/class-hub/{classId}/exam-rooms/{roomId}/start")
+    @PostMapping("/class-hub/{classId}/exam-rooms/{roomId}/start")
     @PreAuthorize("hasRole('STUDENT')")
     @Transactional
     public ResponseEntity<?> startExamAttempt(
@@ -474,7 +997,6 @@ public class StudentStudyController {
             User student = userRepository.findByEmail(principal.getName()).orElseThrow();
             ExamRoom room = examRoomRepository.findById(roomId).orElseThrow();
 
-            // BƯỚC 1: TÌM BÀI DỞ
             Optional<UserAttempt> globalInProgress = userAttemptRepository
                     .findFirstByUser_IdAndStatus(student.getId(), vn.hvnh.exam.common.AttemptStatus.IN_PROGRESS);
             
@@ -483,20 +1005,15 @@ public class StudentStudyController {
                 ExamRoom unfinishedRoom = unfinished.getExamRoom();
                 LocalDateTime now = LocalDateTime.now();
                 
-                boolean isTimeUp = unfinished.getStartTime().plusMinutes(unfinishedRoom.getDurationMinutes() + 1).isBefore(now);
+                boolean isTimeUp = unfinished.getStartTime().plusMinutes((unfinishedRoom.getDurationMinutes() != null ? unfinishedRoom.getDurationMinutes() : 60) + 1).isBefore(now);
                 boolean isRoomClosed = unfinishedRoom.getEndTime() != null && unfinishedRoom.getEndTime().isBefore(now);
                 
                 if (isTimeUp || isRoomClosed) {
-                    // Hết hạn → đánh dấu COMPLETED và flush ngay để trigger thấy
                     unfinished.setEndTime(now);
                     unfinished.setStatus(vn.hvnh.exam.common.AttemptStatus.COMPLETED);
-                    // 🔥 FIX: dùng executeUpdate native để bypass trigger check
                     userAttemptRepository.saveAndFlush(unfinished);
-                    // Force flush xuống DB trước khi tiếp tục
-                    userAttemptRepository.flush();
                 } else {
                     if (unfinishedRoom.getId().equals(roomId)) {
-                        // Resume bài cũ
                         Map<String, Object> response = new HashMap<>();
                         response.put("success", true);
                         response.put("attemptId", unfinished.getAttemptId());
@@ -512,7 +1029,6 @@ public class StudentStudyController {
                 }
             }
 
-            // BƯỚC 2: KIỂM TRA ĐIỀU KIỆN TẠO MỚI
             LocalDateTime now = LocalDateTime.now();
             if (room.getStartTime() != null && now.isBefore(room.getStartTime())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Phòng thi chưa mở cửa."));
@@ -528,8 +1044,6 @@ public class StudentStudyController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Bạn đã hết lượt làm bài."));
             }
 
-            // BƯỚC 3: TẠO ATTEMPT MỚI - bypass trigger bằng native UPDATE trước
-            // Update status IN_PROGRESS → COMPLETED cho tất cả attempt cũ của user trong room này (phòng hờ)
             userAttemptRepository.forceCloseInProgressAttempts(student.getId(), roomId);
             userAttemptRepository.flush();
 
@@ -557,7 +1071,7 @@ public class StudentStudyController {
     
     @GetMapping("/attempts/{attemptId}")
     @PreAuthorize("hasRole('STUDENT')")
-    @Transactional(readOnly = true) // Cần để Lazy Load danh sách câu hỏi
+    @Transactional(readOnly = true) 
     public ResponseEntity<?> getAttemptDetails(@PathVariable UUID attemptId, Principal principal) {
         try {
             UserAttempt attempt = userAttemptRepository.findById(attemptId)
@@ -574,7 +1088,7 @@ public class StudentStudyController {
             response.put("showResult", room.getShowResult());
             response.put("maxAttempts", room.getMaxAttempts());
             response.put("attemptCount", userAttemptRepository.countByUser_IdAndExamRoom_Id(attempt.getUser().getId(), room.getId()));
-            // 🔥 Tách logic hiển thị theo CHẾ ĐỘ TẠO ĐỀ (Dùng creationMode)
+            
             if ("PDF".equals(room.getCreationMode())) {
                 response.put("examType", "PDF");
                 response.put("pdfUrl", room.getPdfUrl()); 
@@ -614,7 +1128,6 @@ public class StudentStudyController {
             
             ExamRoom room = attempt.getExamRoom();
 
-            // 🔥 1. ĐỀ THI PDF: LƯU NHÁP BẰNG JSON
             if ("PDF".equals(room.getCreationMode())) {
                 String qIndex = payload.get("questionId"); 
                 String ans = payload.get("answerId");      
@@ -632,7 +1145,6 @@ public class StudentStudyController {
 
                 return ResponseEntity.ok(Map.of("success", true, "message", "Đã lưu nháp câu " + qIndex + ": " + ans));
             }
-            // 🔥 2. ĐỀ THI NGÂN HÀNG: LƯU BẢNG ATTEMPT_ANSWER
             else if ("BANK".equals(room.getCreationMode())) {
                 UUID questionId = UUID.fromString(payload.get("questionId"));
                 UUID answerId = UUID.fromString(payload.get("answerId"));
@@ -685,7 +1197,6 @@ public class StudentStudyController {
             double score = 0.0;
             int totalAnswered = 0;
 
-            // 🔥 1. CHẤM ĐIỂM ĐỀ THI PDF
             if ("PDF".equals(room.getCreationMode())) {
                 Map<String, String> studentAnswers = new HashMap<>();
                 ObjectMapper mapper = new ObjectMapper();
@@ -716,7 +1227,6 @@ public class StudentStudyController {
                     score = (double) correctCount / totalQuestions * 10.0; 
                 }
             } 
-            // 🔥 2. CHẤM ĐIỂM ĐỀ NGÂN HÀNG CÂU HỎI
             else if ("BANK".equals(room.getCreationMode())) {
                 List<AttemptAnswer> attemptAnswers = attemptAnswerRepository.findByAttempt_AttemptId(attemptId);
                 totalAnswered = attemptAnswers.size();
@@ -768,9 +1278,6 @@ public class StudentStudyController {
         return map;
     }
 
-    // =========================================================================
-    // 🔥 API: XEM LẠI ĐÁP ÁN CHI TIẾT (REVIEW)
-    // =========================================================================
     @GetMapping("/attempts/{attemptId}/review")
     @PreAuthorize("hasRole('STUDENT')")
     @Transactional(readOnly = true)
@@ -781,7 +1288,6 @@ public class StudentStudyController {
             
             ExamRoom room = attempt.getExamRoom();
             
-            // 1. CHỐNG GIAN LẬN TỪ BACKEND: Kiểm tra xem đã đủ điều kiện xem chưa
             long attemptCount = userAttemptRepository.countByUser_IdAndExamRoom_Id(attempt.getUser().getId(), room.getId());
             int maxAttempts = room.getMaxAttempts() != null ? room.getMaxAttempts() : 1;
             boolean showResult = room.getShowResult() != null ? room.getShowResult() : true;
@@ -792,7 +1298,6 @@ public class StudentStudyController {
                 ));
             }
 
-            // 2. ĐÓNG GÓI DỮ LIỆU TRẢ VỀ CHO FRONTEND
             Map<String, Object> response = new HashMap<>();
             response.put("examRoomName", room.getName());
             response.put("score", attempt.getScore());
@@ -802,37 +1307,29 @@ public class StudentStudyController {
             response.put("startTime", attempt.getStartTime());
             response.put("endTime", attempt.getEndTime());
 
-            // A. NẾU LÀ ĐỀ THI PDF
             if ("PDF".equals(room.getCreationMode())) {
                 response.put("pdfUrl", room.getPdfUrl());
-                response.put("answerKey", room.getAnswerKey()); // Cung cấp luôn chuỗi đáp án chuẩn
+                response.put("answerKey", room.getAnswerKey()); 
                 
                 ObjectMapper mapper = new ObjectMapper();
                 Map<String, String> studentAnswers = new HashMap<>();
                 if (attempt.getDraftAnswers() != null && !attempt.getDraftAnswers().isEmpty()) {
                     studentAnswers = mapper.readValue(attempt.getDraftAnswers(), new TypeReference<Map<String, String>>(){});
                 }
-                response.put("studentAnswers", studentAnswers); // Đáp án user đã tô
+                response.put("studentAnswers", studentAnswers); 
             } 
-            // B. NẾU LÀ ĐỀ THI NGÂN HÀNG (MA TRẬN)
             else if ("BANK".equals(room.getCreationMode())) {
-                // Lấy các đáp án mà user đã chọn dưới DB
                 List<AttemptAnswer> attemptAnswers = attemptAnswerRepository.findByAttempt_AttemptId(attemptId);
                 Map<UUID, UUID> selectedMap = new HashMap<>();
                 for (AttemptAnswer aa : attemptAnswers) {
-                    // Bọc thép: Tránh lỗi nếu câu hỏi hoặc đáp án đã chọn bị xóa vật lý
                     if (aa.getSelectedAnswer() != null && aa.getQuestion() != null) {
                         selectedMap.put(aa.getQuestion().getQuestionId(), aa.getSelectedAnswer().getAnswerId());
                     }
                 }
 
-                // Gắn từng câu hỏi kèm ĐÁP ÁN ĐÚNG và ĐÁP ÁN ĐÃ CHỌN
                 List<Map<String, Object>> questionsList = new ArrayList<>();
-                
-                // Bọc thép: Kiểm tra room.getQuestions() có rỗng không
                 if (room.getQuestions() != null) {
                     for (vn.hvnh.exam.entity.sql.Question q : room.getQuestions()) {
-                        // 🔥 BỌC THÉP LỚP 1: Bỏ qua nếu câu hỏi bị null
                         if (q == null) continue;
 
                         Map<String, Object> qMap = new HashMap<>();
@@ -842,17 +1339,15 @@ public class StudentStudyController {
 
                         List<Map<String, Object>> ansList = new ArrayList<>();
                         
-                        // 🔥 BỌC THÉP LỚP 2: Bỏ qua nếu mảng đáp án bị null
                         if (q.getAnswers() != null) {
                             for (vn.hvnh.exam.entity.sql.Answer a : q.getAnswers()) {
-                                // 🔥 BỌC THÉP LỚP 3: Bỏ qua nếu từng đáp án bị null
                                 if (a == null) continue;
                                 
                                 Map<String, Object> aMap = new HashMap<>();
                                 aMap.put("answerId", a.getAnswerId());
                                 aMap.put("answerText", a.getAnswerText());
                                 aMap.put("answerLabel", a.getAnswerLabel());
-                                aMap.put("isCorrect", a.getIsCorrect()); // MỞ KHÓA BÍ MẬT 🔓
+                                aMap.put("isCorrect", a.getIsCorrect()); 
                                 aMap.put("isSelected", a.getAnswerId().equals(selectedMap.get(q.getQuestionId()))); 
                                 ansList.add(aMap);
                             }
@@ -870,4 +1365,5 @@ public class StudentStudyController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
-}
+
+}

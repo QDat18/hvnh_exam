@@ -126,6 +126,21 @@ const PracticeZoneTab: React.FC<PracticeZoneTabProps> = ({ subjectId }) => {
     };
 
     // ==========================================
+    // 0. GIAO DIỆN CHƯA CHỌN MÔN
+    // ==========================================
+    if (!subjectId) {
+        return (
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: 'white', borderRadius: '24px', border: '1px solid #e5e7eb', margin: '20px' }}>
+                <div style={{ width: '80px', height: '80px', background: '#f5f3ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                    <BookMarked size={40} color="#6366f1" />
+                </div>
+                <h3 style={{ fontWeight: 900, color: '#1e293b', marginBottom: '12px' }}>Chưa chọn môn học</h3>
+                <p style={{ color: '#64748b', maxWidth: '400px', margin: '0 auto 32px' }}>Vui lòng chọn một môn học ở thanh công cụ phía trên để thiết lập đề thi luyện tập.</p>
+            </div>
+        );
+    }
+
+    // ==========================================
     // 1. GIAO DIỆN SETUP (Có 2 Tab: Tạo mới & Lịch sử)
     // ==========================================
     if (step === 'setup') return (

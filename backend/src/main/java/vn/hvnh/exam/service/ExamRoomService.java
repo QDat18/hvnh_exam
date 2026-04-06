@@ -1,7 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,15 +24,20 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ExamRoomService {
-    
+
     private final ExamRoomRepository examRoomRepository;
     private final CourseClassRepository courseClassRepository;
     private final QuestionService questionService;
     private final JdbcTemplate jdbcTemplate;
+
+    public ExamRoomService(ExamRoomRepository examRoomRepository, CourseClassRepository courseClassRepository, QuestionService questionService, JdbcTemplate jdbcTemplate) {
+        this.examRoomRepository = examRoomRepository;
+        this.courseClassRepository = courseClassRepository;
+        this.questionService = questionService;
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     private final String UPLOAD_DIR = "uploads/pdfs/"; 
 

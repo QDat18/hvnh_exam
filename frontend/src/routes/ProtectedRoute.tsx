@@ -1,7 +1,6 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth'; // Trỏ đúng đường dẫn tới hook useAuth của bác
-
 interface ProtectedRouteProps {
     allowedRoles: string[];
 }
@@ -22,7 +21,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
     // 2. SAI QUYỀN (Ví dụ: Sinh viên đòi vào trang Quản lý Khoa) -> Đá về đúng nhà của nó
     if (!allowedRoles.includes(user.role)) {
         console.warn(`[BẢO VỆ] User role '${user.role}' cố gắng truy cập trái phép!`);
-        
+
         switch (user.role) {
             case 'STUDENT':
                 return <Navigate to="/student/dashboard" replace />;
@@ -38,7 +37,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
     }
 
     // 3. ĐÚNG QUYỀN -> Mở cửa cho vào (Render các component con bên trong)
-    return <Outlet />;
+    const layoutContext = useOutletContext();
+    return <Outlet context={layoutContext} />;
 };
 
 export default ProtectedRoute;

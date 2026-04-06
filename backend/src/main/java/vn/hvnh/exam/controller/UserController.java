@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,11 +13,15 @@ import vn.hvnh.exam.dto.AuthResponse; // Tận dụng DTO này để trả về 
 
 @RestController
 @RequestMapping("/api/users")
-@RequiredArgsConstructor
 public class UserController {
 
     private final AuthService authService;
     private final UserRepository userRepository;
+
+    public UserController(AuthService authService, UserRepository userRepository) {
+        this.authService = authService;
+        this.userRepository = userRepository;
+    }
 
     // ========================================================================
     // 1. LẤY THÔNG TIN USER HIỆN TẠI (Frontend gọi ngay sau khi Login Supabase)

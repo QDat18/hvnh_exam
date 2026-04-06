@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hvnh.exam.dto.ClassRequest;
@@ -17,13 +16,17 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class ClassManagementService {
 
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
     private final ClassStudentRepository classStudentRepository; 
 
+    public ClassManagementService(ClassRepository classRepository, UserRepository userRepository, ClassStudentRepository classStudentRepository) {
+        this.classRepository = classRepository;
+        this.userRepository = userRepository;
+        this.classStudentRepository = classStudentRepository;
+    }
     // 1. Lấy danh sách lớp theo Khoa
     public List<Classes> getClassesByFacultyAdmin(String facultyAdminEmail) {
         User admin = userRepository.findByEmail(facultyAdminEmail)

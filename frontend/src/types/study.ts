@@ -15,12 +15,18 @@ export interface StudentDocument {
 }
 
 export interface Flashcard {
+    id: string; // Unified ID
     flashcardId: string;
+    studentDocumentId?: string;
+    subjectId?: string;
     frontText: string;
     backText: string;
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD' | string;
+    nextReviewDate?: string;
+    lastReviewedAt?: string;
     sourcePage?: number;
     sourceReference?: string;
-    proficiencyLevel: 'NEW' | 'LEARNING' | 'KNOWN' | 'MASTERED';
+    proficiencyLevel: 'NEW' | 'LEARN' | 'LEARNING' | 'KNOWN' | 'MASTERED' | string;
     createdAt: string;
 }
 

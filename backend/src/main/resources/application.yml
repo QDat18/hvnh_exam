@@ -8,9 +8,9 @@ spring:
   datasource:
     # ⚠️ QUAN TRỌNG: Phải có ?sslmode=require ở cuối
     # Nếu bị lỗi "Prepared statement... exists", hãy thêm &prepareThreshold=0 vào cuối URL
-    url: jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+    url: jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
     username: postgres.wqxjubsrqsxeejcsokqb
-    password: YOUR_DATABASE_PASSWORD  
+    password: 26a4040725Dat@  
     driver-class-name: org.postgresql.Driver
     hikari:
       max-lifetime: 580000
@@ -43,7 +43,7 @@ spring:
   # ===============================
   data:
     mongodb:
-      uri: mongodb+srv://YOUR_MONGO_USER:YOUR_MONGO_PASSWORD@hvnh-cluster.dg2yc6z.mongodb.net/hvnh_logs?appName=hvnh-cluster
+      uri: mongodb+srv://hvnh_user:26a4040725Dat@hvnh-cluster.dg2yc6z.mongodb.net/hvnh_logs?appName=hvnh-cluster
 
   # ===============================
   # Jackson (JSON format)
@@ -75,16 +75,16 @@ supabase:
   url: https://wqxjubsrqsxeejcsokqb.supabase.co
   
   key:
-    service-role-key: YOUR_SUPABASE_SERVICE_ROLE_KEY
+    service-role-key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxeGp1YnNycXN4ZWVqY3Nva3FiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTY2ODkyNSwiZXhwIjoyMDg1MjQ0OTI1fQ.vXEEAhU9-EGBiHMFCjf0Vsd9oimG3RN69xpcNimJ0jk
     
   jwt:
     # Vào Settings -> API -> JWT Settings -> JWT Secret (Dùng để giải mã Token)
-    secret: YOUR_SUPABASE_JWT_SECRET
+    secret: uLnF7dL40N0GTZcsZ7/+ylK4FF7iMLRlwvRxXBRUB+oLFUBC2Kr8ARjXQNekaZ35nhgYfBh5dta0qX5lDQYJeQ==
   
   bucket:
     name: documents
     
 gemini:
   api:
-    key: YOUR_GROQ_API_KEY
+    key: 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
 

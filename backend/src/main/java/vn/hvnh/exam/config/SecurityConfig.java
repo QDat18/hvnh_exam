@@ -1,6 +1,5 @@
 package vn.hvnh.exam.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,11 +19,18 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final RateLimitFilter rateLimitFilter;
     private final MaintenanceModeFilter maintenanceModeFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, 
+                          RateLimitFilter rateLimitFilter, 
+                          MaintenanceModeFilter maintenanceModeFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.rateLimitFilter = rateLimitFilter;
+        this.maintenanceModeFilter = maintenanceModeFilter;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

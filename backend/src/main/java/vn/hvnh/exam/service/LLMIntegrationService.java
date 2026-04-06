@@ -2,8 +2,8 @@ package vn.hvnh.exam.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -13,19 +13,23 @@ import org.springframework.web.client.RestTemplate;
 import java.util.*;
 
 @Service
-@Slf4j
-@RequiredArgsConstructor
 public class LLMIntegrationService {
 
-    // Vẫn dùng biến này để lấy key từ application.properties
+    private static final Logger log = LoggerFactory.getLogger(LLMIntegrationService.class);
+
     @Value("${gemini.api.key:}")
     private String apiKey;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_DELAY_MS = 1000;
+    public LLMIntegrationService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    private static final int MAX_RETRIES = 5;
+    private static final long BASE_RETRY_DELAY_MS = 2000;
 
     /**
      * Hàm Public để gọi từ DocumentAIProcessor
@@ -43,9 +47,9 @@ public class LLMIntegrationService {
 
             // 1. Cấu hình Groq API
             String apiUrl = "https://api.groq.com/openai/v1/chat/completions";
-            String modelName = "llama-3.3-70b-versatile"; // Model siêu tốc độ của Groq
+            String modelName = "llama-3.3-70b-versatile";
 
-            // 2. Tạo Headers (Chuẩn Bearer Token)
+            // 2. Tạo Headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
@@ -58,11 +62,11 @@ public class LLMIntegrationService {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", modelName);
             requestBody.put("messages", List.of(message));
-            requestBody.put("temperature", 0.2); // Để 0.2 cho kết quả JSON ổn định, không bịa chữ
+            requestBody.put("temperature", 0.2); 
 
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
-            log.info("🚀 Gọi Groq AI | Model: {} | Attempt: {}", modelName, attempt);
+            log.info("🚀 Gọi Groq AI | Model: {} | Attempt: {}/{}", modelName, attempt, MAX_RETRIES);
             
             // 4. Gửi Request
             ResponseEntity<String> response = restTemplate.exchange(
@@ -72,7 +76,7 @@ public class LLMIntegrationService {
                     String.class
             );
 
-            // 5. Parse JSON trả về
+            // 5. Parse JSON
             JsonNode rootNode = objectMapper.readTree(response.getBody());
             String aiResponseText = rootNode.path("choices")
                     .get(0)
@@ -82,18 +86,34 @@ public class LLMIntegrationService {
 
             return cleanMarkdownCodeBlocks(aiResponseText);
 
+        } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+            log.warn("⚠️ AI Rate Limit (429) hit on attempt {}. Waiting to retry...", attempt);
+            if (attempt < MAX_RETRIES) {
+                try {
+                    // Groq thường yêu cầu đợi ~6-10s cho Rate Limit
+                    long waitTime = 7000 + (attempt * 3000); 
+                    log.info("⏳ Waiting {}ms before retrying AI API...", waitTime);
+                    Thread.sleep(waitTime);
+                    return callAI(prompt, attempt + 1);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Thread interrupted during retry wait", ie);
+                }
+            }
+            throw new RuntimeException("AI API failed: Rate limit exceeded after " + MAX_RETRIES + " attempts", e);
         } catch (RestClientException e) {
             log.error("❌ Lỗi gọi AI API (lần {}): {}", attempt, e.getMessage());
             if (attempt < MAX_RETRIES) {
                 try {
-                    Thread.sleep(RETRY_DELAY_MS * attempt);
+                    long waitTime = BASE_RETRY_DELAY_MS * (long) Math.pow(2, attempt - 1);
+                    Thread.sleep(waitTime);
                     return callAI(prompt, attempt + 1);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    throw new RuntimeException("Thread bị gián đoạn khi đợi retry", ie);
+                    throw new RuntimeException("Thread interrupted during retry wait", ie);
                 }
             }
-            throw new RuntimeException("AI API thất bại sau " + MAX_RETRIES + " lần thử", e);
+            throw new RuntimeException("AI API failed after " + MAX_RETRIES + " attempts", e);
         } catch (Exception e) {
             log.error("❌ Lỗi parse dữ liệu từ AI: {}", e.getMessage(), e);
             throw new RuntimeException("Không thể đọc phản hồi từ AI", e);

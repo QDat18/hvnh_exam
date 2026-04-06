@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LoginPage from '../modules/auth/LoginPage.tsx';
 import DashboardPage from '../modules/DashboardHome.tsx';
-import ChangePasswordPage from '../modules/auth/ChangePasswordPage.tsx'; // Nhớ import trang này
+import ChangePasswordPage from '../modules/auth/ChangePasswordPage.tsx';
+import CompetencyAnalysisPage from '../modules/student/CompetencyAnalysisPage.tsx';
+import LearningStatisticsPage from '../modules/student/LearningStatisticsPage.tsx';
 import { useAuth } from '../context/AuthContext';
 import SubjectManager from '../modules/SubjectManager.tsx';
 
@@ -56,6 +58,26 @@ const AppRoutes = () => {
                 element={
                     <ProtectedRoute>
                         <ChangePasswordPage />
+                    </ProtectedRoute>
+                } 
+            />
+
+            {/* Trang Phân tích Hồ sơ Năng lực */}
+            <Route 
+                path="/student/competency-analysis" 
+                element={
+                    <ProtectedRoute>
+                        <CompetencyAnalysisPage />
+                    </ProtectedRoute>
+                } 
+            />
+
+            {/* Trang Thống kê Học tập */}
+            <Route 
+                path="/student/analytics" 
+                element={
+                    <ProtectedRoute>
+                        <LearningStatisticsPage />
                     </ProtectedRoute>
                 } 
             />

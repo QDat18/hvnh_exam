@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hvnh.exam.dto.CreateTeacherRequest;
@@ -19,13 +18,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class TeacherManagementService {
     
     private final UserRepository userRepository;
     private final FacultyRepository facultyRepository;
     private final UserCreationService userCreationService;
     private final DepartmentRepository departmentRepository;
+
+    public TeacherManagementService(UserRepository userRepository, FacultyRepository facultyRepository, UserCreationService userCreationService, DepartmentRepository departmentRepository) {
+        this.userRepository = userRepository;
+        this.facultyRepository = facultyRepository;
+        this.userCreationService = userCreationService;
+        this.departmentRepository = departmentRepository;
+    }
     
     public List<User> getTeachersByFacultyAdmin(String facultyAdminEmail) {
         User facultyAdmin = userRepository.findByEmail(facultyAdminEmail)

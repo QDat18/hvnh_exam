@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.hvnh.exam.dto.GoogleLoginRequest;
@@ -16,11 +15,15 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+
+    public AuthController(JwtTokenProvider jwtTokenProvider, UserRepository userRepository) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.userRepository = userRepository;
+    }
 
     /**
      * Endpoint: POST /api/auth/login

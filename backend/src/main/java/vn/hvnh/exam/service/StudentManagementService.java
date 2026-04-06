@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hvnh.exam.dto.StudentRequest;
@@ -9,7 +8,7 @@ import vn.hvnh.exam.entity.sql.ClassStudent;
 import vn.hvnh.exam.entity.sql.User;
 import vn.hvnh.exam.repository.sql.ClassRepository;
 import vn.hvnh.exam.repository.sql.ClassStudentRepository;
-import vn.hvnh.exam.repository.sql.UserRepository;;
+import vn.hvnh.exam.repository.sql.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,13 +16,24 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class StudentManagementService {
 
     private final UserRepository userRepository;
     private final ClassRepository classRepository;
     private final ClassStudentRepository classStudentRepository;
-    private final UserCreationService userCreationService; // Gọi lại service tạo user qua Supabase/Auth
+    private final UserCreationService userCreationService;
+
+    public StudentManagementService(
+        UserRepository userRepository,
+        ClassRepository classRepository,
+        ClassStudentRepository classStudentRepository,
+        UserCreationService userCreationService
+    ) {
+        this.userRepository = userRepository;
+        this.classRepository = classRepository;
+        this.classStudentRepository = classStudentRepository;
+        this.userCreationService = userCreationService;
+    }
 
     @Transactional
     public ClassStudent addStudentToClass(UUID classId, StudentRequest request, String adminEmail) {
@@ -126,6 +136,4 @@ public class StudentManagementService {
 
         return classStudentRepository.save(classStudent);
     }
-
-    
 }

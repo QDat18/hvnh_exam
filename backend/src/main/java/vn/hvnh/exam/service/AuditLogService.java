@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import vn.hvnh.exam.entity.nosql.ActionLog;
@@ -9,10 +8,13 @@ import vn.hvnh.exam.repository.nosql.ActionLogRepository;
 import java.time.LocalDateTime;
 
 @Service
-@RequiredArgsConstructor
 public class AuditLogService {
 
     private final ActionLogRepository actionLogRepository;
+
+    public AuditLogService(ActionLogRepository actionLogRepository) {
+        this.actionLogRepository = actionLogRepository;
+    }
 
     /**
      * @Async giúp việc ghi log chạy ngầm (Thread riêng).

@@ -1,27 +1,29 @@
-// package vn.hvnh.exam.controller;
+package vn.hvnh.exam.controller;
 
-// import lombok.RequiredArgsConstructor;
-// import org.springframework.http.ResponseEntity;
-// import org.springframework.web.bind.annotation.*;
-// import vn.hvnh.exam.entity.sql.Faculty;
-// import vn.hvnh.exam.service.FacultyService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import vn.hvnh.exam.entity.sql.Faculty;
+import vn.hvnh.exam.service.FacultyService;
 
-// import java.util.List;
-// import java.util.UUID; 
+import java.util.List;
+import java.util.UUID; 
 
-// @RestController
-// @RequestMapping("/api/faculties")
-// @RequiredArgsConstructor
-// public class FacultyController {
-//     private final FacultyService facultyService;
+@RestController
+@RequestMapping("/api/faculties")
+public class FacultyController {
+    private final FacultyService facultyService;
 
-//     @GetMapping
-//     public ResponseEntity<List<Faculty>> getAllFaculties() {
-//         return ResponseEntity.ok(facultyService.getAllFaculties());
-//     }
+    public FacultyController(FacultyService facultyService) {
+        this.facultyService = facultyService;
+    }
 
-//     @PostMapping
-//     public ResponseEntity<Faculty> createFaculty(@RequestBody Faculty faculty) {
-//         return ResponseEntity.ok(facultyService.createFaculty(faculty));
-//     }
-// }
+    @GetMapping
+    public ResponseEntity<List<Faculty>> getAllFaculties() {
+        return ResponseEntity.ok(facultyService.getAllFaculties());
+    }
+
+    @PostMapping
+    public ResponseEntity<Faculty> createFaculty(@RequestBody Faculty faculty) {
+        return ResponseEntity.ok(facultyService.createFaculty(faculty));
+    }
+}

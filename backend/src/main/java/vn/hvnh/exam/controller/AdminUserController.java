@@ -1,7 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -21,11 +19,14 @@ import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/api/admin/users")
-@RequiredArgsConstructor
 @PreAuthorize("hasAuthority('ADMIN')")
 public class AdminUserController {
 
     private final UserRepository userRepository;
+
+    public AdminUserController(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     /**
      * GET /api/admin/users?page=0&size=20&role=STUDENT&keyword=nguyen

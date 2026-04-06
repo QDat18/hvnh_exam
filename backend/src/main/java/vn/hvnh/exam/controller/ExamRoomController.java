@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,7 +13,6 @@ import vn.hvnh.exam.repository.sql.ExamRoomRepository;
 import vn.hvnh.exam.service.ExamRoomService;
 import vn.hvnh.exam.service.QuestionService;
 
-import java.security.Principal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -22,16 +20,19 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/exams") // Chú ý có chữ 's' để phân biệt với api cũ của bác
-@RequiredArgsConstructor
+@RequestMapping("/api/exams")
 public class ExamRoomController {
 
     private final ExamRoomService examRoomService;
     private final ExamRoomRepository examRoomRepository;
     private final QuestionService questionService;
-    /**
-     * 1. API Tạo phòng thi từ bốc đề Ngân hàng (Ma trận)
-     */
+
+    public ExamRoomController(ExamRoomService examRoomService, ExamRoomRepository examRoomRepository, QuestionService questionService) {
+        this.examRoomService = examRoomService;
+        this.examRoomRepository = examRoomRepository;
+        this.questionService = questionService;
+    }
+
     @PostMapping("/create-from-matrix")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'FACULTY_ADMIN', 'TEACHER')")
     public ResponseEntity<?> createFromMatrix(@RequestBody ExamCreateRequest request) {
@@ -47,11 +48,6 @@ public class ExamRoomController {
         }
     }
 
-    /**
-     * 2. API Tạo phòng thi bằng file PDF
-     */
-
-
     @PostMapping(value = "/create-from-pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createFromPdf(
             @RequestParam("file") MultipartFile file,
@@ -63,7 +59,7 @@ public class ExamRoomController {
             @RequestParam("answerKey") String answerKey,
             @RequestParam(value = "startTime", required = false) String startTime,
             @RequestParam(value = "endTime", required = false) String endTime,
-            @RequestParam(value = "showResult", defaultValue = "true") Boolean showResult // 🔥 Thêm param này
+            @RequestParam(value = "showResult", defaultValue = "true") Boolean showResult
     ) {
         ExamRoom room = examRoomService.createExamFromPdf(
                 file, name, courseClassId, durationMinutes, 
@@ -73,19 +69,14 @@ public class ExamRoomController {
         return ResponseEntity.ok(room);
     }
 
-    /**
-     * 3. API Lấy danh sách phòng thi của 1 Lớp học phần (Dùng để hiển thị ở tab Kiểm tra)
-     */
     @PostMapping("/preview-from-matrix")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'FACULTY_ADMIN')") 
     public ResponseEntity<?> previewFromMatrix(@RequestBody ExamMatrixRequest request) {
         try {
-            // Gọi thuật toán nhặt câu hỏi
             List<Question> questions = questionService.generateExamFromMatrix(request);
             return ResponseEntity.ok(questions);
         } catch (Exception e) {
-            e.printStackTrace(); // In log ra console để bác xem DB đang thiếu câu gì
-            // Hứng lỗi và trả về 400 (Bad Request) để Frontend hiện Toast thông báo đỏ
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of(
                 "message", e.getMessage() != null ? e.getMessage() : "Lỗi trong quá trình bốc đề từ ma trận."
             ));
@@ -106,7 +97,6 @@ public class ExamRoomController {
         }
     }
 
-    // 1. API CHỈNH SỬA PHÒNG THI
     @PutMapping("/{roomId}/update")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'FACULTY_ADMIN')")
     public ResponseEntity<?> updateExamRoom(
@@ -124,7 +114,6 @@ public class ExamRoomController {
                 room.setEndTime(LocalDateTime.parse(updates.get("endTime").toString(), DateTimeFormatter.ISO_DATE_TIME));
             }
             
-            // 🔥 BỔ SUNG 2 TRƯỜNG NÀY ĐỂ UPDATE ĐƯỢC LƯỢT THI & ĐÁP ÁN
             if (updates.containsKey("maxAttempts")) {
                 room.setMaxAttempts(Integer.parseInt(updates.get("maxAttempts").toString()));
             }

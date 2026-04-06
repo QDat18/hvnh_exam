@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hvnh.exam.dto.CreateFacultyRequest;
@@ -16,18 +15,44 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class FacultyService {
     
     private final FacultyRepository facultyRepository;
     private final UserRepository userRepository;
     private final UserCreationService userCreationService;
+
+    public FacultyService(FacultyRepository facultyRepository, 
+                         UserRepository userRepository, 
+                         UserCreationService userCreationService) {
+        this.facultyRepository = facultyRepository;
+        this.userRepository = userRepository;
+        this.userCreationService = userCreationService;
+    }
     
     /**
      * Lấy tất cả các khoa
      */
     public List<Faculty> getAllFaculties() {
         return facultyRepository.findAllByIsActiveTrueOrderByFacultyNameAsc();
+    }
+
+    /**
+     * Tạo khoa mới (Cơ bản)
+     */
+    @Transactional
+    public Faculty createFaculty(Faculty faculty) {
+        if (faculty.getFacultyCode() == null || faculty.getFacultyCode().isEmpty()) {
+            throw new RuntimeException("Mã khoa không được để trống");
+        }
+        if (facultyRepository.existsByFacultyCode(faculty.getFacultyCode())) {
+            throw new RuntimeException("Mã khoa đã tồn tại: " + faculty.getFacultyCode());
+        }
+        
+        faculty.setIsActive(true);
+        if (faculty.getCreatedAt() == null) faculty.setCreatedAt(LocalDateTime.now());
+        if (faculty.getUpdatedAt() == null) faculty.setUpdatedAt(LocalDateTime.now());
+        
+        return facultyRepository.save(faculty);
     }
     
     /**

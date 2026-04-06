@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.springframework.stereotype.Service;
@@ -15,10 +14,13 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class WordImportService {
 
     private final QuestionService questionService;
+
+    public WordImportService(QuestionService questionService) {
+        this.questionService = questionService;
+    }
 
     public void importFromWord(MultipartFile file, UUID subjectId, UUID chapterId) throws Exception {
         XWPFDocument doc = new XWPFDocument(file.getInputStream());
@@ -28,14 +30,12 @@ public class WordImportService {
         List<AnswerRequest> currentAnswers = new ArrayList<>();
 
         for (XWPFParagraph p : paragraphs) {
-            // 🔥 NÂNG CẤP 1: Cắt nhỏ paragraph theo mọi loại dấu xuống dòng (Chống lỗi Shift+Enter)
             String[] lines = p.getText().split("\\r?\\n");
             
             for (String rawLine : lines) {
                 String text = rawLine.trim();
                 if (text.isEmpty()) continue;
 
-                // 1. Nhận diện Câu hỏi
                 if (text.toLowerCase().startsWith("câu") || text.toLowerCase().startsWith("question")) {
                     savePreviousQuestion(currentQuestion, currentAnswers);
 
@@ -49,17 +49,14 @@ public class WordImportService {
                     currentQuestion.setBloomLevel(BloomLevel.UNDERSTAND);
                     currentAnswers = new ArrayList<>();
                 } 
-                // 2. Nhận diện Đáp án
                 else if (isAnswerLine(text)) {
                     if (currentQuestion == null) continue;
 
                     boolean isCorrect = text.toLowerCase().contains("[x]");
                     String cleanText = text.replace("[x]", "").replace("[X]", "").trim();
                     
-                    // 🔥 NÂNG CẤP 2: Chống lỗi giảng viên gõ A) thay vì A.
                     String label = cleanText.substring(0, 1).toUpperCase(); 
                     
-                    // Lấy nội dung sau dấu chấm (.) hoặc ngoặc đóng ())
                     int splitIndex = Math.max(cleanText.indexOf("."), cleanText.indexOf(")"));
                     String answerContent = (splitIndex != -1) ? cleanText.substring(splitIndex + 1).trim() : cleanText.substring(1).trim();
 
@@ -84,7 +81,6 @@ public class WordImportService {
     }
 
     private boolean isAnswerLine(String text) {
-        // 🔥 NÂNG CẤP 3: Regex siêu việt, nhận diện cả A. B. và A) B) 
         return text.trim().matches("^(?i)(\\[x\\]\\s*)?[A-Z][\\.\\)]\\s*.*");
     }
 }

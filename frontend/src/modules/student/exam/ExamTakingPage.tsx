@@ -416,24 +416,48 @@ const ExamTakingPage: React.FC = () => {
                 </div>
             )}
 
-            <header className="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center shadow-sm z-3">
-                <div className="d-flex align-items-center gap-3">
-                    <div className="bg-primary text-white rounded p-2"><LayoutGrid size={20} /></div>
-                    <div>
-                        <h5 className="mb-0 fw-bold">{examData?.name}</h5>
-                        <small className="text-muted">Sinh viên: {user?.fullName}</small>
+            <header className="exam-header-premium shadow-lg z-3">
+                <div className="container-fluid px-4 h-100 d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-4">
+                        <div className="exam-logo-box">
+                            <span className="exam-logo-text">NH</span>
+                        </div>
+                        <div className="exam-title-group">
+                            <div className="d-flex align-items-center gap-2">
+                                <FileText size={18} className="text-primary-light" />
+                                <h1 className="exam-title-main mb-0">{examData?.name}</h1>
+                            </div>
+                            <div className="exam-title-sub">
+                                <span className="student-badge">{user?.fullName}</span>
+                                <span className="id-badge">ID: {user?.id?.substring(0, 8)}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div className="d-flex align-items-center gap-4">
-                    {violations > 0 && <div className="badge bg-danger text-white d-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm fs-6"><AlertTriangle size={16} /> Vi phạm: {violations}</div>}
 
-                    <div className={`d-flex align-items-center gap-2 px-4 py-2 rounded-pill fw-bold fs-5 transition-all ${timeLeft < 300 ? 'bg-danger text-white animate-pulse' : 'bg-light text-primary border'}`}>
-                        <Clock size={20} /> {formatTime(timeLeft)}
+                    <div className="d-flex align-items-center gap-4">
+                        {violations > 0 && (
+                            <div className="violation-chip">
+                                <AlertTriangle size={16} />
+                                <span>Vi phạm: {violations}</span>
+                            </div>
+                        )}
+
+                        <div className={`timer-box-premium ${timeLeft < 300 ? 'timer-emergency' : ''}`}>
+                            <Clock size={22} />
+                            <span className="timer-text">{formatTime(timeLeft)}</span>
+                        </div>
+
+                        <button className="btn-submit-premium" onClick={() => handleSubmitExam(false)} disabled={isSubmitting}>
+                            {isSubmitting ? (
+                                <div className="spinner-border spinner-border-sm" role="status"></div>
+                            ) : (
+                                <>
+                                    <span>Nộp bài</span>
+                                    <Send size={18} />
+                                </>
+                            )}
+                        </button>
                     </div>
-
-                    <button className="btn btn-danger px-4 py-2 rounded-pill fw-bold d-flex align-items-center gap-2 shadow-sm" onClick={() => handleSubmitExam(false)} disabled={isSubmitting}>
-                        {isSubmitting ? <span className="spinner-border spinner-border-sm"></span> : <Send size={18} />} Nộp bài
-                    </button>
                 </div>
             </header>
 
@@ -564,22 +588,73 @@ const ExamTakingPage: React.FC = () => {
             </div>
 
             <style>{`
-                .animation-fade-in { animation: fadeIn 0.3s ease-out; }
+                .exam-header-premium { 
+                    height: 80px; 
+                    background: #0f172a; 
+                    border-bottom: 2px solid #1e293b; 
+                    position: sticky; 
+                    top: 0; 
+                }
+                .exam-logo-box { 
+                    width: 48px; 
+                    height: 48px; 
+                    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); 
+                    border-radius: 12px; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center;
+                    box-shadow: 0 0 20px rgba(2, 132, 199, 0.3);
+                }
+                .exam-logo-text { color: white; font-weight: 900; font-size: 1.2rem; }
+                .exam-title-main { color: #f8fafc; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
+                .exam-title-sub { display: flex; gap: 12px; margin-top: 2px; }
+                .student-badge { color: #94a3b8; font-size: 0.85rem; font-weight: 600; }
+                .id-badge { color: #64748b; font-size: 0.8rem; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+                .text-primary-light { color: #38bdf8; }
+
+                .timer-box-premium { 
+                    background: #1e293b; 
+                    padding: 8px 24px; 
+                    border-radius: 50px; 
+                    color: #38bdf8; 
+                    display: flex; 
+                    align-items: center; 
+                    gap: 12px; 
+                    border: 1px solid #334155;
+                    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+                }
+                .timer-text { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 800; }
+                .timer-emergency { border-color: #ef4444; color: #ef4444; background: #450a0a; animation: pulse-red 1.5s infinite; }
+                @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+                .violation-chip { background: #fee2e2; color: #b91c1c; padding: 6px 16px; border-radius: 50px; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+
+                .btn-submit-premium { 
+                    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); 
+                    color: white; border: none; 
+                    padding: 10px 28px; 
+                    border-radius: 50px; 
+                    font-weight: 800; 
+                    display: flex; 
+                    align-items: center; 
+                    gap: 10px; 
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3);
+                }
+                .btn-submit-premium:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(2, 132, 199, 0.4); filter: brightness(1.1); }
+                .btn-submit-premium:active { transform: translateY(0); }
+
+                .animation-fade-in { animation: fadeIn 0.4s ease-out; }
                 .animation-zoom-in { animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes zoomIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-                .animate-pulse { animation: pulse 1s infinite; }
-                @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-                
-                .tracking-wider { letter-spacing: 1px; }
-                .hover-border:hover { border-color: #dee2e6 !important; }
-                .hover-bg-light:hover { background-color: #e9ecef !important; }
-                .bubble-btn:hover:not(.bg-primary) { border-color: #0d6efd !important; color: #0d6efd !important; }
+                @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+                .hover-border:hover { border-color: #cbd5e1 !important; }
             `}</style>
         </div>
     );

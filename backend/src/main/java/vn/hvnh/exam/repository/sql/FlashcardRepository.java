@@ -1,5 +1,7 @@
 package vn.hvnh.exam.repository.sql;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,11 +19,11 @@ public interface FlashcardRepository extends JpaRepository<Flashcard, UUID> {
     // 1. CÁC HÀM CƠ BẢN (Spring tự sinh SQL)
     // ============================================
     
-    List<Flashcard> findByStudentIdOrderByCreatedAtDesc(UUID studentId);
+    Page<Flashcard> findByStudentIdOrderByCreatedAtDesc(UUID studentId, Pageable pageable);
     
-    List<Flashcard> findByStudentIdAndSubjectIdOrderByCreatedAtDesc(UUID studentId, UUID subjectId);
+    Page<Flashcard> findByStudentIdAndSubjectIdOrderByCreatedAtDesc(UUID studentId, UUID subjectId, Pageable pageable);
     
-    List<Flashcard> findByStudentDocumentIdOrderByCreatedAtDesc(UUID studentDocumentId);
+    Page<Flashcard> findByStudentDocumentIdOrderByCreatedAtDesc(UUID studentDocumentId, Pageable pageable);
     
     // ============================================
     // 2. CÁC HÀM TÌM THẺ MỚI (Dành cho FlashcardService)
@@ -117,7 +119,7 @@ public interface FlashcardRepository extends JpaRepository<Flashcard, UUID> {
     );
 
     // ============================================
-    // 4. HÀM THỐNG KÊ
+    // 4. HÀM THỐNG KÊ & CHỐNG TRÙNG LẶP
     // ============================================
     
     @Query("SELECT " +
@@ -130,5 +132,22 @@ public interface FlashcardRepository extends JpaRepository<Flashcard, UUID> {
            "FROM Flashcard f " +
            "WHERE f.studentId = :studentId")
     Object getFlashcardStats(@Param("studentId") UUID studentId);
-    
+
+    /**
+     * Kiểm tra xem thẻ đã tồn tại chưa bằng cách so sánh độ tương đồng (similarity)
+     * Yêu cầu: Đã cài extension pg_trgm trên PostgreSQL/Supabase
+     */
+    @Query(value = "SELECT EXISTS (" +
+                   "  SELECT 1 FROM flashcards f " +
+                   "  WHERE f.student_document_id = :docId " +
+                   "    AND similarity(f.front_content, :content) > 0.85" +
+                   ")", nativeQuery = true)
+    boolean existsBySemanticSimilarity(@Param("docId") UUID docId, @Param("content") String content);
+
+    @Query("SELECT f.subjectId, COUNT(f) FROM Flashcard f WHERE f.studentId = :studentId GROUP BY f.subjectId")
+    List<Object[]> countFlashcardsBySubject(@Param("studentId") UUID studentId);
+
+    long countByStudentIdAndProficiencyLevel(UUID studentId, String proficiencyLevel);
+
+    long countByStudentId(UUID studentId);
 }

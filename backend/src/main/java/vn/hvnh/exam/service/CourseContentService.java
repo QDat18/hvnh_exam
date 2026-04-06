@@ -1,6 +1,5 @@
 package vn.hvnh.exam.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.hvnh.exam.dto.ChapterDTO;
 import vn.hvnh.exam.dto.QuestionRequest;
@@ -15,13 +14,19 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class CourseContentService {
 
     private final SubjectRepository subjectRepository;
     private final ChapterRepository chapterRepository;
     private final QuestionRepository questionRepository;
     private final vn.hvnh.exam.repository.sql.AnswerRepository answerRepository;
+
+    public CourseContentService(SubjectRepository subjectRepository, ChapterRepository chapterRepository, QuestionRepository questionRepository, vn.hvnh.exam.repository.sql.AnswerRepository answerRepository) {
+        this.subjectRepository = subjectRepository;
+        this.chapterRepository = chapterRepository;
+        this.questionRepository = questionRepository;
+        this.answerRepository = answerRepository;
+    }
 
     // --- QUẢN LÝ CHƯƠNG ---
 
@@ -41,7 +46,6 @@ public class CourseContentService {
     }
 
     public List<Chapter> getChaptersBySubject(UUID subjectId) {
-        // 🔥 Gọi đúng tên hàm trong Repository
         return chapterRepository.findBySubject_IdOrderByOrderIndexAsc(subjectId);
     }
 

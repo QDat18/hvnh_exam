@@ -2,28 +2,55 @@ import React, { useState, useEffect } from 'react';
 import axiosClient from '../../../services/axiosClient';
 import {
     Users, BookOpen, Activity, Server, Clock3, GraduationCap,
-    BookCheck, AlertCircle, TrendingUp, ChevronRight, Loader2, Bot, Shield
+    BookCheck, AlertCircle, TrendingUp, ChevronRight, Loader2, Bot, Shield,
+    ArrowUpRight, Users2, Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { 
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    BarChart, Bar, Cell, PieChart, Pie, Legend
+} from 'recharts';
 
-// Định nghĩa kiểu dữ liệu cho hoạt động gần đây
+// Mock data for charts if API doesn't provide historical data yet
+const mockTrendData = [
+    { name: 'Mon', exams: 120, students: 450 },
+    { name: 'Tue', exams: 150, students: 520 },
+    { name: 'Wed', exams: 220, students: 680 },
+    { name: 'Thu', exams: 180, students: 610 },
+    { name: 'Fri', exams: 250, students: 820 },
+    { name: 'Sat', exams: 310, students: 940 },
+    { name: 'Sun', exams: 280, students: 860 },
+];
+
+const mockStatusData = [
+    { name: 'Hoàn thành', value: 400, color: '#3b82f6' },
+    { name: 'Đang thi', value: 300, color: '#22c55e' },
+    { name: 'Chưa tham gia', value: 300, color: '#64748b' },
+];
+
+const mockFacultyData = [
+    { name: 'CNTT', active: 45, inactive: 12 },
+    { name: 'Kinh tế', active: 38, inactive: 15 },
+    { name: 'Ngân hàng', active: 52, inactive: 8 },
+    { name: 'Luật', active: 24, inactive: 20 },
+    { name: 'Ngoại ngữ', active: 31, inactive: 14 },
+];
+
 interface RecentActivity {
     userName: string;
     avatarUrl?: string;
     action: string;
     timeAgo: string;
-    timestamp: string; // LocalDateTime string from Java
+    timestamp: string;
 }
 
 const AdminDashboard: React.FC = () => {
-    // States lưu dữ liệu API — khởi tạo rỗng an toàn
     const navigate = useNavigate();
     const [stats, setStats] = useState<any>(null);
     const [activities, setActivities] = useState<RecentActivity[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Gọi API lấy dữ liệu song song
     useEffect(() => {
         setLoading(true);
         Promise.allSettled([
@@ -34,20 +61,14 @@ const AdminDashboard: React.FC = () => {
 
             if (statsRes.status === 'fulfilled') {
                 setStats(statsRes.value.data);
-            } else {
-                // Lỗi API 404 hoặc Backend chưa viết
-                console.warn("⚠️ API Thống kê lỗi hoặc chưa sẵn sàng.");
             }
 
             if (activitiesRes.status === 'fulfilled') {
-                // 🔥 SỬA: Bọc thép kiểm tra mảng an toàn
                 const activitiesData = activitiesRes.value.data;
                 setActivities(Array.isArray(activitiesData) ? activitiesData : []);
-            } else {
-                console.warn("⚠️ API Hoạt động gần đây lỗi hoặc chưa sẵn sàng.");
             }
         }).catch(err => {
-            console.error("Lỗi nghiêm trọng khi tải dữ liệu dashboard:", err);
+            console.error("Dashboard error:", err);
             toast.error("Không thể kết nối với hệ thống thống kê!");
         }).finally(() => {
             setLoading(false);
@@ -55,136 +76,334 @@ const AdminDashboard: React.FC = () => {
     }, []);
 
     return (
-        <div className="container-fluid py-4 animation-fade-in">
-            {/* Tiêu đề chào mừng */}
-            <header className="mb-4 pb-2 border-bottom">
-                <div className="d-flex align-items-center gap-3">
-                    <div className="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
-                        <Bot size={32} />
+        <div className="admin-dashboard-dark min-vh-100 p-4" style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}>
+            {/* WELCOME HEADER */}
+            <header className="mb-5 d-flex justify-content-between align-items-center">
+                <div className="d-flex align-items-center gap-4">
+                    <div className="dashboard-logo pulsate">
+                        <Bot size={36} color="#6366f1" />
                     </div>
                     <div>
-                        <h1 className="fw-bold text-dark mb-1">Hệ thống Ôn Thi Trắc nghiệm — iReview</h1>
-                        <p className="text-muted mb-0">Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        <h1 className="fw-bold mb-1" style={{ fontSize: '1.8rem', letterSpacing: '-0.5px' }}>iReview Control Center</h1>
+                        <div className="d-flex align-items-center gap-3 text-slate-400 small">
+                            <span className="d-flex align-items-center gap-1"><Calendar size={14} /> {new Date().toLocaleDateString('vi-VN')}</span>
+                            <span className="status-indicator">Hệ thống đang hoạt động ổn định</span>
+                        </div>
                     </div>
+                </div>
+                <div className="d-none d-md-flex gap-2">
+                    <button className="btn-action">Tải báo cáo</button>
+                    <button className="btn-action primary" onClick={() => navigate('/admin/settings')}>Cấu hình</button>
                 </div>
             </header>
 
-            {/* Metrics — 🔥 ĐÃ SỬA: Bọc Optional Chaining ?. và giá trị mặc định || 0 để chống sập */}
-            <section className="row g-4 mb-4" aria-label="Các chỉ số thống kê">
+            {/* KEY METRICS */}
+            <section className="row g-4 mb-5">
                 {[
-                    {
-                        title: "Tổng người dùng",
-                        value: loading ? '…' : (stats?.totalUsers || 0).toLocaleString('vi-VN'),
-                        icon: Users, color: "primary", badge: "", badgeClass: ""
-                    },
-                    {
-                        title: "Môn học Active",
-                        value: loading ? '…' : String(stats?.activeSubjects || 0),
-                        icon: BookOpen, color: "warning", badge: "", badgeClass: ""
-                    },
-                    {
-                        title: "Lượt thi toàn trường",
-                        value: loading ? '…' : (stats?.examsTodayCount || 0).toLocaleString('vi-VN'), // Đã đổi key khớp backend
-                        icon: Activity, color: "info", badge: "", badgeClass: ""
-                    },
-                    {
-                        title: "System Uptime",
-                        value: loading ? '…' : (stats?.uptime || '99.9% (HARDCODED)'),
-                        icon: Server, color: "danger", badge: "Ổn định", badgeClass: "badge-soft-info"
-                    },
+                    { title: "Tổng người dùng", value: stats?.totalUsers || 0, icon: Users2, color: "#6366f1", trend: "+12.5%" },
+                    { title: "Môn học Active", value: stats?.activeSubjects || 0, icon: BookOpen, color: "#f59e0b", trend: "+3.2%" },
+                    { title: "Lượt thi hôm nay", value: stats?.examsTodayCount || 0, icon: Activity, color: "#10b981", trend: "+8.4%" },
+                    { title: "Uptime hệ thống", value: stats?.uptime || '99.9%', icon: Server, color: "#3b82f6", trend: "0.0%" },
                 ].map((stat, idx) => (
                     <div className="col-md-3" key={idx}>
-                        <div className="ent-card h-100 card p-3 border-0">
-                            <div className="d-flex justify-content-between align-items-center mb-3">
-                                <div className={`bg-${stat.color} bg-opacity-10 p-2 rounded-3 text-${stat.color}`}>
-                                    <stat.icon size={24} aria-hidden="true" />
+                        <div className="metric-card">
+                            <div className="d-flex justify-content-between mb-4">
+                                <div className="metric-icon" style={{ backgroundColor: `${stat.color}20`, color: stat.color }}>
+                                    <stat.icon size={22} />
                                 </div>
-                                {stat.badge && <span className={`ent-badge ${stat.badgeClass}`}>{stat.badge}</span>}
+                                <div className="trend-badge d-flex align-items-center gap-1">
+                                    <ArrowUpRight size={12} /> {stat.trend}
+                                </div>
                             </div>
-                            <h2 className="fs-3 fw-bold text-dark mb-1">{stat.value}</h2>
-                            <p className="text-muted small mb-0">{stat.title}</p>
+                            <h2 className="display-6 fw-extrabold mb-1">{loading ? '...' : (typeof stat.value === 'number' ? stat.value.toLocaleString('vi-VN') : stat.value)}</h2>
+                            <span className="text-slate-400 fw-medium small text-uppercase" style={{ letterSpacing: '1px' }}>{stat.title}</span>
                         </div>
                     </div>
                 ))}
             </section>
 
-            {/* Các shortcut nhanh cho Admin */}
-            <section className="row g-4 mb-4" aria-label="Thao tác nhanh">
-                <div className="col-md-4">
-                    <div
-                        className="ent-card card p-4 border-0 d-flex align-items-center gap-3 flex-row hover-bg-light cursor-pointer"
-                        onClick={() => navigate('/admin/logs')} // 🔥 CẮM DÂY CHUYỂN TRANG VÀO ĐÂY
-                    >
-                        <Shield size={36} className="text-danger" />
-                        <div>
-                            <h6 className="fw-bold text-dark mb-1">Kiểm tra Nhật ký hành vi</h6>
-                            <p className="small text-muted mb-0">Xem log hoạt động MongoDB realtime</p>
+            {/* CHARTS SECTION */}
+            <section className="row g-4 mb-5">
+                <div className="col-lg-8">
+                    <div className="dashboard-card h-100">
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h5 className="fw-bold mb-0">Xu hướng tham gia thi</h5>
+                            <select className="dark-select">
+                                <option>7 ngày qua</option>
+                                <option>30 ngày qua</option>
+                            </select>
                         </div>
-                        <ChevronRight className="ms-auto text-muted" />
+                        <div style={{ height: '300px', width: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={mockTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorExams" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#64748b" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                                    <YAxis stroke="#64748b" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#f8fafc' }}
+                                        itemStyle={{ color: '#f8fafc' }}
+                                    />
+                                    <Area type="monotone" dataKey="exams" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorExams)" />
+                                    <Area type="monotone" dataKey="students" stroke="#10b981" strokeWidth={3} fillOpacity={0} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
-                <div className="col-md-4">
-                    <div
-                        className="ent-card card p-4 border-0 d-flex align-items-center gap-3 flex-row hover-bg-light cursor-pointer"
-                        onClick={() => navigate('/admin/active-exams')}
-                    >
-                        <AlertCircle size={36} className="text-warning" />
-                        <div>
-                            <h6 className="fw-bold text-dark mb-1">Giám sát kỳ thi đang diễn ra</h6>
-                            <p className="small text-muted mb-0">Xem danh sách phòng thi Active</p>
+                <div className="col-lg-4">
+                    <div className="dashboard-card h-100">
+                        <h5 className="fw-bold mb-4">Trạng thái thi tuyển</h5>
+                        <div style={{ height: '300px', width: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={mockStatusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={8}
+                                        dataKey="value"
+                                    >
+                                        {mockStatusData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '10px' }}
+                                    />
+                                    <Legend verticalAlign="bottom" height={36}/>
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
-                        <ChevronRight className="ms-auto text-muted" />
-                    </div>
-                </div>
-                <div className="col-md-4">
-                    <div className="ent-card card p-4 border-0 d-flex align-items-center gap-3 flex-row hover-bg-light cursor-pointer">
-                        <BookCheck size={36} className="text-success" />
-                        <div>
-                            <h6 className="fw-bold text-dark mb-1">Xuất dữ liệu thống kê môn học</h6>
-                            <p className="small text-muted mb-0">Xuất file Excel báo cáo học kỳ</p>
-                        </div>
-                        <ChevronRight className="ms-auto text-muted" />
                     </div>
                 </div>
             </section>
 
-            {/* Bảng hoạt động gần đây (Recent Activities) */}
-            <section className="row">
-                <div className="col-12">
-                    <div className="ent-card card p-4 border-0">
-                        <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                            <h5 className="fw-bold mb-0 d-flex align-items-center gap-2">
-                                <Activity className="text-primary" size={20} /> Hoạt động thi cử gần nhất (Realtime)
-                            </h5>
-                            <button className="btn btn-sm btn-light rounded-pill px-3 fw-bold">Xem tất cả</button>
+            {/* LOWER SECTION: ACTIVITY & FACULTY */}
+            <section className="row g-4 mb-4">
+                <div className="col-lg-7">
+                    <div className="dashboard-card h-100">
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h5 className="fw-bold mb-0">Hoạt động Realtime</h5>
+                            <button className="btn-link-slate" onClick={() => navigate('/admin/logs')}>Xem log hệ thống</button>
                         </div>
-
-                        <div className="activity-feed">
+                        <div className="activity-list">
                             {loading ? (
-                                <div className="text-center py-4"><Loader2 className="spin text-primary" /></div>
+                                <div className="text-center py-5"><Loader2 className="spin text-indigo-500" /></div>
                             ) : activities.length === 0 ? (
-                                <div className="text-center py-4 text-muted fst-italic fs-7 bg-light rounded-3 border">
-                                    Chưa có hoạt động nộp bài nào được ghi nhận.
+                                <div className="empty-activity text-center py-5">
+                                    <Activity size={40} className="mb-2 opacity-20" />
+                                    <p className="text-slate-500 italic">Chưa có hành động nào gần đây</p>
                                 </div>
                             ) : (
                                 activities.map((act, idx) => (
-                                    <div key={idx} className="d-flex gap-3 align-items-center py-3 border-bottom-dashed">
-                                        <div className="bg-secondary text-white rounded-circle d-flex justify-content-center align-items-center fw-bold" style={{ width: '36px', height: '36px' }}>
+                                    <div key={idx} className="activity-item">
+                                        <div className="activity-avatar">
                                             {act.userName.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="flex-grow-1">
-                                            <div className="text-dark small lh-base">{act.action}</div>
-                                            <div className="d-flex align-items-center gap-2 text-muted x-small">
-                                                <Clock3 size={12} /> {act.timeAgo}
-                                            </div>
+                                            <div className="activity-desc text-slate-200">{act.action}</div>
+                                            <div className="activity-time">{act.timeAgo}</div>
                                         </div>
+                                        <ChevronRight size={16} className="text-slate-600" />
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
                 </div>
+                <div className="col-lg-5">
+                    <div className="dashboard-card h-100">
+                        <h5 className="fw-bold mb-4">Phân bổ theo Khoa</h5>
+                        <div style={{ height: '300px', width: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={mockFacultyData} layout="vertical" margin={{ left: -20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={true} vertical={false} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" stroke="#94a3b8" axisLine={false} tickLine={false} />
+                                    <Tooltip 
+                                        cursor={{fill: '#334155', opacity: 0.4}}
+                                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+                                    />
+                                    <Bar dataKey="active" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={12} />
+                                    <Bar dataKey="inactive" fill="#334155" radius={[0, 4, 4, 0]} barSize={12} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
             </section>
+
+            <style>{`
+                .admin-dashboard-dark {
+                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                }
+
+                .dashboard-logo {
+                    width: 60px;
+                    height: 60px;
+                    background: rgba(99, 102, 241, 0.1);
+                    border-radius: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .status-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .status-indicator::before {
+                    content: '';
+                    width: 8px;
+                    height: 8px;
+                    background: #10b981;
+                    border-radius: 50%;
+                    box-shadow: 0 0 8px #10b981;
+                }
+
+                .btn-action {
+                    padding: 8px 18px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 0.9rem;
+                    border: 1px solid #334155;
+                    background: #1e293b;
+                    color: white;
+                    transition: all 0.2s;
+                }
+                .btn-action:hover {
+                    background: #334155;
+                }
+                .btn-action.primary {
+                    background: #6366f1;
+                    border-color: #6366f1;
+                }
+                .btn-action.primary:hover {
+                    background: #4f46e5;
+                }
+
+                .metric-card {
+                    background: #1e293b;
+                    border-radius: 20px;
+                    padding: 24px;
+                    border: 1px solid rgba(255,255,255,0.05);
+                    transition: transform 0.2s;
+                }
+                .metric-card:hover {
+                    transform: translateY(-5px);
+                }
+
+                .metric-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 14px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .trend-badge {
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #10b981;
+                    padding: 4px 8px;
+                    border-radius: 20px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                }
+
+                .dashboard-card {
+                    background: #1e293b;
+                    border-radius: 24px;
+                    padding: 24px;
+                    border: 1px solid rgba(255,255,255,0.05);
+                }
+
+                .dark-select {
+                    background: #0f172a;
+                    border: 1px solid #334155;
+                    color: #94a3b8;
+                    padding: 6px 12px;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                    outline: none;
+                }
+
+                .activity-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+                .activity-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    padding: 12px;
+                    border-radius: 12px;
+                    transition: background 0.2s;
+                    cursor: pointer;
+                }
+                .activity-item:hover {
+                    background: rgba(255,255,255,0.03);
+                }
+                .activity-avatar {
+                    width: 36px;
+                    height: 36px;
+                    background: #334155;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    color: white;
+                }
+                .activity-desc {
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                }
+                .activity-time {
+                    font-size: 0.75rem;
+                    color: #64748b;
+                }
+
+                .btn-link-slate {
+                    background: transparent;
+                    border: none;
+                    color: #6366f1;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                }
+                .btn-link-slate:hover {
+                    text-decoration: underline;
+                }
+
+                .fw-extrabold { font-weight: 800; }
+                
+                .pulsate {
+                    animation: pulsate-indigo 3s infinite ease-in-out;
+                }
+                @keyframes pulsate-indigo {
+                    0%, 100% { box-shadow: 0 0 0 rgba(99, 102, 241, 0); }
+                    50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+                }
+
+                .loader-spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };

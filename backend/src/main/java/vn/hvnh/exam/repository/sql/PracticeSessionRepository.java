@@ -48,4 +48,12 @@ public interface PracticeSessionRepository extends JpaRepository<PracticeSession
     // 8. Hàm đếm số bài hôm nay (Fix lỗi bằng cách bỏ điều kiện Date phức tạp)
     @Query("SELECT COUNT(ps) FROM PracticeSession ps WHERE ps.studentId = :studentId")
     long countCompletedToday(@Param("studentId") UUID studentId);
+
+    long countByStudentId(UUID studentId);
+
+    @Query("SELECT ps.subjectId, s.subjectName, AVG(ps.score) " +
+           "FROM PracticeSession ps JOIN Subject s ON ps.subjectId = s.id " +
+           "WHERE ps.studentId = :studentId " +
+           "GROUP BY ps.subjectId, s.subjectName")
+    List<Object[]> getAverageScoresGroupBySubject(@Param("studentId") UUID studentId);
 }

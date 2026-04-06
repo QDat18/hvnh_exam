@@ -1,6 +1,5 @@
 package vn.hvnh.exam.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,11 +22,15 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/questions")
-@RequiredArgsConstructor
 public class QuestionController {
 
     private final QuestionService questionService;
     private final vn.hvnh.exam.repository.sql.QuestionRepository questionRepository;
+
+    public QuestionController(QuestionService questionService, vn.hvnh.exam.repository.sql.QuestionRepository questionRepository) {
+        this.questionService = questionService;
+        this.questionRepository = questionRepository;
+    }
 
     // API: Tạo mới 1 câu hỏi
     @PostMapping

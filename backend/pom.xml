@@ -80,15 +80,6 @@
             <version>2.3.0</version>
         </dependency>
 
-        <!-- ===================== -->
-        <!-- Lombok -->
-        <!-- ===================== -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <!-- <scope>provided</scope> -->
-            <optional>true</optional>
-        </dependency>
 
         <!-- ===================== -->
         <!-- TEST -->
@@ -132,6 +123,18 @@
             <groupId>net.objecthunter</groupId>
             <artifactId>exp4j</artifactId>
             <version>0.4.8</version>
+        </dependency>
+
+        <!-- ===================== -->
+        <!-- CACHE -->
+        <!-- ===================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
         </dependency>
     </dependencies>
 

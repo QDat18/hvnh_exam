@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { studyHubApi } from '../../services/studyHubApi';
 import { type StudentDocument, type Flashcard } from '../../types/study';
-import { BookOpen, Send, Bot, User, PlayCircle, RotateCcw, AlertCircle } from 'lucide-react';
+import { 
+    BookOpen, Send, Bot, User, PlayCircle, RotateCcw, 
+    AlertCircle, Sparkles, BookMarked
+} from 'lucide-react';
 
 interface AITutorSpaceProps {
-    subjectId: string;
+    subjectId?: string;
 }
 
 const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
     // --- States ---
     const [documents, setDocuments] = useState<StudentDocument[]>([]);
     const [selectedDoc, setSelectedDoc] = useState<StudentDocument | null>(null);
+    const [isReviewingSubjectAll, setIsReviewingSubjectAll] = useState(false);
     const [activeTab, setActiveTab] = useState<'flashcard' | 'chat'>('flashcard');
 
     // States cho Flashcard
@@ -27,11 +31,17 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
 
     // --- Load Danh sách tài liệu (Chỉ lấy file Đã hoàn thành) ---
     useEffect(() => {
+        if (!subjectId) return;
+        
         studyHubApi.getDocuments(subjectId).then(res => {
             const completedDocs = (res.data?.documents || []).filter(d => d.processingStatus === 'COMPLETED');
             setDocuments(completedDocs);
-            if (completedDocs.length > 0) {
+            
+            // Default: select first doc if not reviewing all
+            if (!isReviewingSubjectAll && completedDocs.length > 0) {
                 handleSelectDoc(completedDocs[0]);
+            } else if (isReviewingSubjectAll) {
+                handleReviewAllSubject();
             }
         }).catch(err => console.error("Lỗi load docs", err));
     }, [subjectId]);
@@ -46,6 +56,7 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
     // --- Chọn Tài liệu & Load Flashcard ---
     const handleSelectDoc = async (doc: StudentDocument) => {
         setSelectedDoc(doc);
+        setIsReviewingSubjectAll(false);
         setCurrentCardIndex(0);
         setIsFlipped(false);
         setChatHistory([
@@ -54,6 +65,24 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
 
         try {
             const res = await studyHubApi.getFlashcards(doc.studentDocId);
+            setFlashcards(res.data?.flashcards || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleReviewAllSubject = async () => {
+        setIsReviewingSubjectAll(true);
+        setSelectedDoc(null);
+        setCurrentCardIndex(0);
+        setIsFlipped(false);
+        setActiveTab('flashcard');
+        setChatHistory([
+            { role: 'ai', text: "Đang tổng hợp tất cả thẻ nhớ của môn học để bạn ôn tập tổng quát!" }
+        ]);
+
+        try {
+            const res = await studyHubApi.getFlashcards(undefined, subjectId);
             setFlashcards(res.data?.flashcards || []);
         } catch (err) {
             console.error(err);
@@ -100,32 +129,73 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
         }
     };
 
+    if (!subjectId) {
+        return (
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: 'white', borderRadius: '24px', border: '1px solid #e5e7eb', margin: '20px' }}>
+                <div style={{ width: '80px', height: '80px', background: '#f5f3ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                    <BookMarked size={40} color="#6366f1" />
+                </div>
+                <h3 style={{ fontWeight: 900, color: '#1e293b', marginBottom: '12px' }}>Chưa chọn môn học</h3>
+                <p style={{ color: '#64748b', maxWidth: '400px', margin: '0 auto 32px' }}>Vui lòng chọn một môn học ở thanh công cụ phía trên để luyện tập flashcard.</p>
+            </div>
+        );
+    }
+
     if (documents.length === 0) {
         return (
-            <div className="text-center p-5 bg-white rounded-4 shadow-sm border border-dashed">
-                <AlertCircle size={48} className="text-warning opacity-50 mb-3" />
-                <h4>Chưa có tài liệu nào sẵn sàng</h4>
-                <p className="text-muted">Vui lòng sang tab <b>Kho Tài Liệu</b> để tải tài liệu lên và chờ AI xử lý trước khi học nhé.</p>
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: 'white', borderRadius: '24px', border: '1px solid #e5e7eb', margin: '20px' }}>
+                <div style={{ width: '80px', height: '80px', background: '#fffbeb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                    <AlertCircle size={40} color="#f59e0b" />
+                </div>
+                <h4 style={{ fontWeight: 800, color: '#1e293b', marginBottom: '12px' }}>Chưa có tài liệu nào</h4>
+                <p style={{ color: '#64748b', maxWidth: '400px', margin: '0 auto 32px' }}>Vui lòng sang tab <b>Kho Tài Liệu</b> để tải tài liệu lên và chờ AI xử lý trước khi học nhé.</p>
             </div>
         );
     }
 
     return (
-        <div className="row g-4 animation-fade-in">
+        <div className="row g-4 animation-fade-in" style={{ padding: '20px' }}>
             {/* CỘT TRÁI: DANH SÁCH TÀI LIỆU */}
             <div className="col-lg-3">
-                <div className="card border-0 shadow-sm rounded-4 h-100">
+                {/* SUBJECT PROGRESS WIDGET */}
+                <div className="glass-card mb-4 p-4" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: 'white', border: 'none' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Tiến độ môn học</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: '12px' }}>78%</div>
+                    
+                    <div className="progress mb-3" style={{ height: '6px', background: 'rgba(255,255,255,0.2)' }}>
+                        <div className="progress-bar bg-white" style={{ width: '78%' }}></div>
+                    </div>
+                    
+                    <div className="d-flex justify-content-between" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                        <span>32 Thẻ đã thuộc</span>
+                        <span>41 Tổng cộng</span>
+                    </div>
+                </div>
+
+                <div className="card border-0 shadow-sm rounded-4 h-100" style={{ background: 'white', overflow: 'hidden' }}>
                     <div className="card-header bg-white border-bottom pt-4 pb-3 px-4">
                         <h6 className="fw-bold text-dark mb-0">📚 Chọn Bài Học</h6>
                     </div>
                     <div className="list-group list-group-flush p-2">
+                        {/* Option "Review All Subject Cards" */}
+                        <button
+                            onClick={handleReviewAllSubject}
+                            className={`list-group-item list-group-item-action rounded-3 border-0 mb-3 p-3 transition-all ${isReviewingSubjectAll ? 'bg-primary text-white shadow-sm' : 'bg-light text-primary hover-bg-secondary'}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+                        >
+                            <Sparkles size={20} />
+                            <div className="fw-bold" style={{ fontSize: '0.9rem' }}>Ôn tập tất cả</div>
+                        </button>
+
+                        <div style={{ padding: '0 8px 8px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỪ TÀI LIỆU</div>
+                        
                         {documents.map(doc => (
                             <button
                                 key={doc.studentDocId}
                                 onClick={() => handleSelectDoc(doc)}
                                 className={`list-group-item list-group-item-action rounded-3 border-0 mb-1 p-3 transition-all ${selectedDoc?.studentDocId === doc.studentDocId ? 'bg-primary text-white shadow-sm' : 'bg-light text-dark hover-bg-secondary'}`}
                             >
-                                <div className="fw-bold text-truncate" style={{ fontSize: '0.9rem' }}>{doc.documentTitle}</div>
+                                <div className="fw-bold text-truncate" style={{ fontSize: '0.85rem' }}>{doc.documentTitle}</div>
                             </button>
                         ))}
                     </div>
