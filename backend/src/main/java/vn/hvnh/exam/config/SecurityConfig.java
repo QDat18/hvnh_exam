@@ -50,7 +50,7 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/**").permitAll()
 
                 // Public endpoints không cần token
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                 .requestMatchers("/error").permitAll() 
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -68,10 +68,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", "https://hvnh-exam-review.vercel.app"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "x-auth-token"));
-        configuration.setExposedHeaders(List.of("x-auth-token"));
+        // Cho phép localhost và các domain production phổ biến
+        configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173", 
+            "https://*.vercel.app", 
+            "https://*.onrender.com"
+        ));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Authorization", "x-auth-token"));
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

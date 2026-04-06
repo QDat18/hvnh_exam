@@ -7,12 +7,26 @@ interface LoginResponse {
     isFirstLogin: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const getApiBaseUrl = () => {
+    let url = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+    // Đảm bảo URL luôn có tiền tố /api
+    if (!url.endsWith('/api') && !url.endsWith('/api/')) {
+        url = url.endsWith('/') ? `${url}api` : `${url}/api`;
+    }
+    return url;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const authService = {
     login: async (email: string, password: string): Promise<LoginResponse> => {
+        console.log(`[AUTH] Attempting Supabase login for: ${email}`);
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        
+        if (error) {
+            console.error('[AUTH] Supabase error:', error.message, error.status);
+            throw error;
+        }
 
         try {
             const backendResponse = await axios.post(`${API_BASE_URL}/auth/login`, { email: email });
