@@ -1,5 +1,7 @@
 package vn.hvnh.exam.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,11 +13,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import vn.hvnh.exam.security.JwtAuthenticationFilter;
-import vn.hvnh.exam.security.RateLimitFilter;
-import vn.hvnh.exam.security.MaintenanceModeFilter;
 
-import java.util.List;
+import vn.hvnh.exam.security.JwtAuthenticationFilter;
+import vn.hvnh.exam.security.MaintenanceModeFilter;
+import vn.hvnh.exam.security.RateLimitFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -67,7 +68,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", "https://hvnh-exam-review.vercel.app"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "x-auth-token"));
         configuration.setExposedHeaders(List.of("x-auth-token"));

@@ -7,7 +7,7 @@ interface LoginResponse {
     isFirstLogin: boolean;
 }
 
-const BACKEND_URL = 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 const authService = {
     login: async (email: string, password: string): Promise<LoginResponse> => {
@@ -15,26 +15,32 @@ const authService = {
         if (error) throw error;
 
         try {
-            const backendResponse = await axios.post(`${BACKEND_URL}/api/auth/login`, { email: email });
-            localStorage.setItem('access_token', backendResponse.data.token);
+            const backendResponse = await axios.post(`${API_BASE_URL}/auth/login`, { email: email });
+            const responseData = backendResponse.data as any;
+            localStorage.setItem('access_token', responseData.token);
+            
+            return { 
+                user: responseData.user, 
+                session: data.session, 
+                isFirstLogin: responseData.isFirstLogin || false 
+            };
         } catch (err: any) {
             console.error('[AUTH] Failed to get backend token:', err.response?.data || err.message);
             throw new Error('Failed to authenticate with backend');
         }
-
-        return { user: data.user, session: data.session, isFirstLogin: false };
     },
 
     loginWithGoogle: async (email: string, googleToken: string, userData: any) => {
         try {
-            const backendResponse = await axios.post(`${BACKEND_URL}/api/auth/google-login`, {
+            const backendResponse = await axios.post(`${API_BASE_URL}/auth/google-login`, {
                 email: email,
                 googleToken: googleToken,
                 fullName: userData.fullName,
                 avatarUrl: userData.avatarUrl
             });
-            localStorage.setItem('access_token', backendResponse.data.token);
-            return { user: backendResponse.data.user, token: backendResponse.data.token };
+            const responseData = backendResponse.data as any;
+            localStorage.setItem('access_token', responseData.token);
+            return { user: responseData.user, token: responseData.token };
         } catch (err: any) {
             throw new Error(err.response?.data?.message || 'Failed to authenticate with backend');
         }
@@ -60,13 +66,14 @@ const authService = {
                     const fullName = user.user_metadata?.full_name || 'Người dùng Google';
                     const avatarUrl = user.user_metadata?.avatar_url || '';
 
-                    const backendResponse = await axios.post(`${BACKEND_URL}/api/auth/google-login`, {
+                    const backendResponse = await axios.post(`${API_BASE_URL}/auth/google-login`, {
                         email: user.email,
                         googleToken: providerToken,
                         fullName: fullName,
                         avatarUrl: avatarUrl
                     });
-                    token = backendResponse.data.token;
+                    const responseData = backendResponse.data as any;
+                    token = responseData.token;
                     if (token) {
                         localStorage.setItem('access_token', token);
                     } else {
@@ -84,7 +91,7 @@ const authService = {
         }
 
         try {
-            const response = await axios.get(`${BACKEND_URL}/api/users/me`, {
+            const response = await axios.get(`${API_BASE_URL.replace('/api', '')}/api/users/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -117,8 +124,9 @@ const authService = {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user || !user.email) return null;
 
-            const response = await axios.post(`${BACKEND_URL}/api/auth/login`, { email: user.email });
-            const newToken = response.data.token;
+            const response = await axios.post(`${API_BASE_URL}/auth/login`, { email: user.email });
+            const responseData = response.data as any;
+            const newToken = responseData.token;
             localStorage.setItem('access_token', newToken);
 
             return newToken;
@@ -135,7 +143,7 @@ const authService = {
         formData.append('file', file);
 
         try {
-            const response = await axios.post(`${BACKEND_URL}/api/users/avatar`, formData, {
+            const response = await axios.post(`${API_BASE_URL.replace('/api', '')}/api/users/avatar`, formData, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
