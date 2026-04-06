@@ -12,7 +12,7 @@
 /Demo_web.mp4
 /ErrorAtLine1.mp4
 /build/
-
+/.env
 # Nested ignores
 **/node_modules/
 **/dist/
