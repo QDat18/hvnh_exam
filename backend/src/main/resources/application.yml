@@ -10,7 +10,7 @@ spring:
     # Nếu bị lỗi "Prepared statement... exists", hãy thêm &prepareThreshold=0 vào cuối URL
     url: jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
     username: postgres.wqxjubsrqsxeejcsokqb
-    password: 26a4040725Dat@  
+    password: ${DB_PASSWORD}  
     driver-class-name: org.postgresql.Driver
     hikari:
       max-lifetime: 580000
@@ -43,7 +43,7 @@ spring:
   # ===============================
   data:
     mongodb:
-      uri: mongodb+srv://hvnh_user:26a4040725Dat@hvnh-cluster.dg2yc6z.mongodb.net/hvnh_logs?appName=hvnh-cluster
+      uri: ${MONGODB_URI}
 
   # ===============================
   # Jackson (JSON format)
@@ -72,19 +72,19 @@ logging:
 # ===============================
 supabase:
   # Vào Settings -> API để lấy URL này
-  url: https://wqxjubsrqsxeejcsokqb.supabase.co
+  url: ${SUPABASE_URL}
   
   key:
-    service-role-key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxeGp1YnNycXN4ZWVqY3Nva3FiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTY2ODkyNSwiZXhwIjoyMDg1MjQ0OTI1fQ.vXEEAhU9-EGBiHMFCjf0Vsd9oimG3RN69xpcNimJ0jk
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
     
   jwt:
     # Vào Settings -> API -> JWT Settings -> JWT Secret (Dùng để giải mã Token)
-    secret: uLnF7dL40N0GTZcsZ7/+ylK4FF7iMLRlwvRxXBRUB+oLFUBC2Kr8ARjXQNekaZ35nhgYfBh5dta0qX5lDQYJeQ==
+    secret: ${SUPABASE_JWT_SECRET}
   
   bucket:
     name: documents
     
-gemini:
+groq:
   api:
-    key: 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
+    key: ${GROQ_API_KEY}
 

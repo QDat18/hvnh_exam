@@ -17,7 +17,7 @@ public class LLMIntegrationService {
 
     private static final Logger log = LoggerFactory.getLogger(LLMIntegrationService.class);
 
-    @Value("${gemini.api.key:}")
+    @Value("${groq.api.key:}")
     private String apiKey;
 
     private final RestTemplate restTemplate;
