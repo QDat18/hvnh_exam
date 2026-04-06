@@ -27,7 +27,7 @@ import {
     FileText, ChevronRight
 } from 'lucide-react';
 
-import logoHVNH from '../assets/images/logoHVNH.png';
+import logoHVNH from '../assets/images/LogoHVNH.png';
 
 // ─── MobileBottomNav (không thay đổi) ───────────────────────────────────────
 const MobileBottomNav = ({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) => {
