@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM maven:3.8.4-openjdk-17-slim AS build
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 # Copy only the pom.xml to download dependencies (improves build speed with caching)
 COPY pom.xml .
@@ -10,7 +10,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Stage 2: Runtime
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 # Copy the built jar from the build stage
 COPY --from=build /app/target/*.jar app.jar
