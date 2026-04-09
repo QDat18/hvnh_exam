@@ -676,7 +676,24 @@ const MainLayout = () => {
                                 </div>
                                 <div className="user-avatar-container">
                                     {user?.avatarUrl
-                                        ? <img src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:8080${user.avatarUrl}`} alt="Avatar" className="avatar-img-main" loading="lazy" />
+                                        ? <img
+                                            src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:8080${user.avatarUrl}`}
+                                            alt="Avatar"
+                                            className="avatar-img-main"
+                                            loading="lazy"
+                                            onError={(e) => {
+                                                // Fallback: ẩn img, hiện chữ cái đầu
+                                                const target = e.currentTarget;
+                                                const parent = target.parentElement;
+                                                if (parent) {
+                                                    target.style.display = 'none';
+                                                    const fallback = document.createElement('div');
+                                                    fallback.className = 'avatar-placeholder-main';
+                                                    fallback.textContent = user?.fullName?.charAt(0).toUpperCase() || 'U';
+                                                    parent.appendChild(fallback);
+                                                }
+                                            }}
+                                          />
                                         : <div className="avatar-placeholder-main">{user?.fullName?.charAt(0).toUpperCase()}</div>
                                     }
                                 </div>

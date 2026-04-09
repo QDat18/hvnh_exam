@@ -11,6 +11,9 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import Login from './modules/auth/LoginPage';
+import ForgotPasswordPage from './modules/auth/ForgotPasswordPage';
+import UpdatePasswordPage from './modules/auth/UpdatePasswordPage';
+import ChangePasswordPage from './modules/auth/ChangePasswordPage';
 
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -69,6 +72,9 @@ function App() {
         <Routes>
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/update-password" element={<UpdatePasswordPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           
           <Route element={<MainLayout />}>
               <Route path="/profile" element={<UserProfile />} />

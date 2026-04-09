@@ -308,9 +308,6 @@ const ChangePasswordPage = () => {
                     }
                 }
             `}</style>
-<<<<<<< HEAD
-        </div>
-=======
 
             <div className="cp-page">
                 <div className="cp-bg" aria-hidden="true" />
@@ -443,7 +440,6 @@ const ChangePasswordPage = () => {
                 </div>
             </div>
         </>
->>>>>>> 8d091aa775be5c92b9be7db3e19c1d21a927b410
     );
 };
 
