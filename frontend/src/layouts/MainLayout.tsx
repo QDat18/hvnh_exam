@@ -130,8 +130,18 @@ const StudyStatsCard = React.memo(({ stats }: { stats: { hours: number; quizzes:
 ));
 
 // ─── MobileLayout (không thay đổi logic) ────────────────────────────────────
-const MobileLayout = ({ user, logout, navigate, location, menuItems }: any) => {
-    const [activeTab, setActiveTab] = useState('home');
+const MobileLayout = ({ user, logout, navigate, location, menuItems, children }: any) => {
+    // Determine active tab from URL path
+    const getActiveTab = (path: string) => {
+        if (path === '/student' || path === '/student/dashboard' || path === '/student/') return 'home';
+        if (path.includes('/my-classes')) return 'classes';
+        if (path.includes('/practice')) return 'practice';
+        if (path.includes('/analytics')) return 'analytics';
+        if (path.includes('/profile')) return 'profile';
+        return 'home';
+    };
+
+    const activeTab = getActiveTab(location.pathname);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -156,8 +166,7 @@ const MobileLayout = ({ user, logout, navigate, location, menuItems }: any) => {
 
     const getFeatures = useCallback(() => {
         if (user?.role === 'STUDENT') return [
-            { title: 'Phân tích năng lực', description: 'Đánh giá điểm mạnh, điểm yếu của bạn', icon: <Brain size={22} />, path: '/student/competency-analysis' },
-            { title: 'Thống kê học tập', description: 'Theo dõi tiến độ và thành tích', icon: <BarChart3 size={22} />, path: '/student/analytics' },
+            { title: 'Thống kê học tập', description: 'Theo dõi tiến độ và phân tích năng lực AI', icon: <BarChart3 size={22} />, path: '/student/analytics?tab=overview' },
             { title: 'Lớp của tôi', description: 'Quản lý các lớp học đã tham gia', icon: <GraduationCap size={22} />, path: '/student/my-classes' },
         ];
         return menuItems.slice(0, 4);
@@ -245,28 +254,38 @@ const MobileLayout = ({ user, logout, navigate, location, menuItems }: any) => {
             <div className="mobile-main-content">
                 <MobileHeader user={user} onMenuClick={() => setIsSidebarOpen(true)} onNotificationClick={() => setIsNotificationOpen(true)} onSearchClick={() => setIsSearchOpen(true)} notificationCount={notificationCount} />
                 <div className="mobile-scrollable-content">
-                    <div className="content-padding">
-                        <WelcomeCard user={user} />
-                        <StudyStatsCard stats={studyStats} />
-                        <div className="section">
-                            <div className="section-header"><h3>Thao tác nhanh</h3></div>
-                            <div className="quick-actions-grid">
-                                {quickActions.map((action: any, index: number) => (
-                                    <QuickActionCard key={index} title={action.title} icon={action.icon} color={action.color} onClick={() => navigate(action.path)} />
-                                ))}
+                    {/* Render Outlet content if we are NOT on the base dashboard home */}
+                    {(location.pathname === '/student' || location.pathname === '/student/dashboard' || location.pathname === '/student/') ? (
+                        <div className="content-padding">
+                            <WelcomeCard user={user} />
+                            <StudyStatsCard stats={studyStats} />
+                            <div className="section">
+                                <div className="section-header"><h3>Thao tác nhanh</h3></div>
+                                <div className="quick-actions-grid">
+                                    {quickActions.map((action: any, index: number) => (
+                                        <QuickActionCard key={index} title={action.title} icon={action.icon} color={action.color} onClick={() => navigate(action.path)} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="section">
+                                <div className="section-header"><h3>Tính năng nổi bật</h3></div>
+                                <div className="features-list">
+                                    {features.map((feature: any, index: number) => (
+                                        <FeatureCard key={index} title={feature.title || feature.label} description={feature.description || `Truy cập ${feature.label || feature.title}`} icon={feature.icon} onClick={() => navigate(feature.path)} badge={feature.badge} />
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                        <div className="section">
-                            <div className="section-header"><h3>Tính năng nổi bật</h3></div>
-                            <div className="features-list">
-                                {features.map((feature: any, index: number) => (
-                                    <FeatureCard key={index} title={feature.title || feature.label} description={feature.description || `Truy cập ${feature.label || feature.title}`} icon={feature.icon} onClick={() => navigate(feature.path)} badge={feature.badge} />
-                                ))}
-                            </div>
+                    ) : (
+                        <div className="content-padding h-100">
+                             {children}
                         </div>
-                    </div>
+                    )}
                 </div>
-                <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+                <MobileBottomNav activeTab={activeTab} onTabChange={(tab: string) => {
+                    const paths: any = { 'home': '/student', 'classes': '/student/my-classes', 'practice': '/student/practice', 'analytics': '/student/analytics', 'profile': '/profile' };
+                    navigate(paths[tab]);
+                }} />
             </div>
 
             {/* Mobile styles — không thay đổi từ bản gốc */}
@@ -393,7 +412,7 @@ const MainLayout = () => {
         }
     }, [user]);
 
-    if (!user) return <Navigate to="/login" replace />;
+    // Early return for auth moved after hooks
 
     const getMenu = () => {
         if (user?.role === 'ADMIN') return [
@@ -426,8 +445,6 @@ const MainLayout = () => {
             { path: '/student/flashcards', label: 'Học Flashcard', icon: <Layers size={20} /> },
             { path: '/student/practice', label: 'Luyện tập đề', icon: <Target size={20} /> },
             { path: '/student/analytics', label: 'Thống kê học tập', icon: <BarChart3 size={20} /> },
-            { path: '/student/competency-analysis', label: 'Phân tích năng lực', icon: <Brain size={20} /> },
-            { path: '/student/join-course', label: 'Tham gia lớp học', icon: <PlusCircle size={20} /> },
         ];
         return [];
     };
@@ -483,6 +500,9 @@ const MainLayout = () => {
     const handleLogout = useCallback(async () => { await logout(); navigate('/login', { replace: true }); }, [logout, navigate]);
 
     const isExamView = location.pathname.includes('/student/exam/') || location.pathname.includes('/student/flashcards/review');
+
+    if (!user) return <Navigate to="/login" replace />;
+
     if (isExamView) {
         return (
             <div style={{ height: '100vh', width: '100%', background: 'white', overflow: 'hidden' }}>
@@ -491,11 +511,15 @@ const MainLayout = () => {
         );
     }
 
+    // ─── RENDER LOGIC ────────────────────────────────────────────────────────
     if (isMobile) {
-        return <MobileLayout user={user} logout={logout} navigate={navigate} location={location} menuItems={menuItems} />;
+        return (
+            <MobileLayout user={user} logout={logout} navigate={navigate} location={location} menuItems={menuItems}>
+                <Outlet context={{ globalSubjects, selectedSubjectId, setSelectedSubjectId }} />
+            </MobileLayout>
+        );
     }
 
-    // ─── DESKTOP LAYOUT ──────────────────────────────────────────────────────
     return (
         <div className="d-flex vh-100 bg-main-light overflow-hidden">
             {/* Sidebar */}
@@ -509,7 +533,7 @@ const MainLayout = () => {
                     {isSidebarOpen && (
                         <div className="brand-text-center">
                             {/* ★ LCP element (span.brand-name-main) — render ngay, static text */}
-                            <span className="brand-name-main">iReview</span>
+                            <span className="brand-name-main brand-gold-glow">iReview</span>
                             <span className="brand-sub-main">Học thông minh · Thi tự tin</span>
                         </div>
                     )}
@@ -553,17 +577,7 @@ const MainLayout = () => {
                     ))}
                 </nav>
 
-                <div className="p-3 border-top border-light">
-                    <button
-                        onClick={handleLogout}
-                        className="sidebar-link w-100"
-                        style={{ color: '#ef4444', border: 'none', background: 'none' }}
-                        title={!isSidebarOpen ? 'Đăng xuất' : undefined}
-                    >
-                        <span className="icon-wrapper"><LogOut size={20} /></span>
-                        {isSidebarOpen && <span className="ms-3" style={{ fontSize: '0.92rem', fontWeight: 600 }}>Đăng xuất</span>}
-                    </button>
-                </div>
+
             </aside>
 
             {/* Main */}
@@ -696,10 +710,15 @@ const MainLayout = () => {
                 .sidebar-light.collapsed { width: 90px; }
                 .logo-outer-glow { padding: 4px; line-height: 0; }
                 .sidebar-logo-img { width: 64px; height: 64px; border-radius: 20px; object-fit: cover; }
-                .brand-text-center { display: flex; flex-direction: column; overflow: hidden; margin-top: 8px; }
+                .brand-text-center { display: flex; flex-direction: column; align-items: center; overflow: hidden; margin-top: 8px; width: 100%; }
                 /* ★ contain: layout style — browser tidak perlu tính lại layout khi text render */
-                .brand-name-main { font-weight: 900; font-size: 1.6rem; color: #003B70; letter-spacing: -1px; line-height: 1.1; font-family: 'Inter', sans-serif; contain: layout style; }
-                .brand-sub-main { font-size: 0.6rem; color: #94a3b8; font-weight: 800; letter-spacing: 1.5px; margin-top: 4px; text-transform: uppercase; }
+                .brand-name-main { font-weight: 900; font-size: 1.6rem; color: #003B70; letter-spacing: -1px; line-height: 1.1; font-family: 'Inter', sans-serif; contain: layout style; transition: text-shadow 0.3s ease; }
+                .brand-gold-glow { text-shadow: 0 0 15px rgba(251, 191, 36, 0.4); color: #003B70; animation: goldPulse 3s infinite alternate; }
+                @keyframes goldPulse { 
+                    0% { text-shadow: 0 0 8px rgba(251, 191, 36, 0.3); transform: scale(1); }
+                    100% { text-shadow: 0 0 20px rgba(251, 191, 36, 0.7); transform: scale(1.02); }
+                }
+                .brand-sub-main { font-size: 0.6rem; color: #94a3b8; font-weight: 800; letter-spacing: 1.5px; margin-top: 6px; text-transform: uppercase; text-align: center; }
                 .sidebar-link { display: flex; align-items: center; padding: 12px 20px; border-radius: 24px; color: #64748b; cursor: pointer; transition: color 0.2s, background 0.2s, transform 0.2s; position: relative; text-decoration: none; margin: 4px 12px; }
                 .sidebar-link:hover { color: #003B70; background: #f8fafc; transform: translateX(4px); }
                 .sidebar-link.active { color: #003B70; background: #eff6ff; font-weight: 700; border: 1px solid rgba(0, 59, 112, 0.1); box-shadow: 0 10px 20px rgba(0, 59, 112, 0.05); }

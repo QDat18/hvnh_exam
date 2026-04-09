@@ -157,7 +157,7 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
     return (
         <div className="row g-4 animation-fade-in" style={{ padding: '20px' }}>
             {/* CỘT TRÁI: DANH SÁCH TÀI LIỆU */}
-            <div className="col-lg-3">
+            <div className="col-lg-3 order-2 order-lg-1">
                 {/* SUBJECT PROGRESS WIDGET */}
                 <div className="glass-card mb-4 p-4" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: 'white', border: 'none' }}>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Tiến độ môn học</div>
@@ -204,8 +204,8 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
             </div>
 
             {/* CỘT PHẢI: KHÔNG GIAN HỌC (FLASHCARD + CHAT) */}
-            <div className="col-lg-9">
-                <div className="card border-0 shadow-sm rounded-4 h-100 d-flex flex-column overflow-hidden">
+            <div className="col-lg-9 order-1 order-lg-2">
+                <div className="card border-0 shadow-sm rounded-4 h-100 d-flex flex-column overflow-hidden ai-study-space-card">
                     {/* Header Tabs */}
                     <div className="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
                         <h5 className="fw-bold text-primary mb-0 text-truncate pe-3">
@@ -383,6 +383,20 @@ const AITutorSpace: React.FC<AITutorSpaceProps> = ({ subjectId }) => {
                     </div>
                 </div>
             </div>
+            <style>{`
+                @media (max-width: 991px) {
+                    .ai-study-space-card {
+                        min-height: 600px !important;
+                    }
+                    .flashcard-player-container {
+                        max-width: 100% !important;
+                        padding: 10px !important;
+                    }
+                    .flashcard-3d-card {
+                        height: 300px !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 };

@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LoginPage from '../modules/auth/LoginPage.tsx';
+import ForgotPasswordPage from '../modules/auth/ForgotPasswordPage.tsx';
+import UpdatePasswordPage from '../modules/auth/UpdatePasswordPage.tsx';
 import DashboardPage from '../modules/DashboardHome.tsx';
 import ChangePasswordPage from '../modules/auth/ChangePasswordPage.tsx';
 import CompetencyAnalysisPage from '../modules/student/CompetencyAnalysisPage.tsx';
@@ -41,6 +43,8 @@ const AppRoutes = () => {
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/update-password" element={<UpdatePasswordPage />} />
             
             {/* Trang Dashboard (Được bảo vệ) */}
             <Route 
@@ -89,4 +93,4 @@ const AppRoutes = () => {
     );
 };
 
-export default AppRoutes;
+export default AppRoutes;

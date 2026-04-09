@@ -64,6 +64,9 @@ public class StudentDocument {
     @Column(name = "uploader_role")
     private String uploaderRole;
 
+    @Transient
+    private Long flashcardCount;
+
     public StudentDocument() {}
 
     // Getters and Setters
@@ -101,6 +104,9 @@ public class StudentDocument {
     public void setExtractedText(String extractedText) { this.extractedText = extractedText; }
     public String getUploaderRole() { return uploaderRole; }
     public void setUploaderRole(String uploaderRole) { this.uploaderRole = uploaderRole; }
+
+    public Long getFlashcardCount() { return flashcardCount; }
+    public void setFlashcardCount(Long flashcardCount) { this.flashcardCount = flashcardCount; }
 
     public static class StudentDocumentBuilder {
         private StudentDocument doc = new StudentDocument();

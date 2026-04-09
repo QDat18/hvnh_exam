@@ -45,7 +45,7 @@ import ExamMonitorPage from './modules/teacher/ExamMonitorPage';
 import AdminActiveExams from './modules/admin/dashboard/AdminActiveExams';
 import UserProfile from './modules/profile/UserProfile';
 import MaintenancePage from './modules/error/MaintenancePage';
-import CompetencyAnalysisPage from './modules/student/CompetencyAnalysisPage';
+import LearningAnalyticsHub from './modules/student/LearningAnalyticsHub';
 
 
 const RoleRedirect = () => {
@@ -115,8 +115,8 @@ function App() {
                   <Route path="/student/flashcards" element={<FlashcardLearningHub />} />
                   <Route path="/student/flashcards/review" element={<FlashcardReviewPage />} />
                   <Route path="/student/practice" element={<StudentDashboard activeTabDefault="practice" />} />
-                  <Route path="/student/analytics" element={<StudentDashboard activeTabDefault="analytics" />} />
-                  <Route path="/student/competency-analysis" element={<CompetencyAnalysisPage />} />
+                  <Route path="/student/analytics" element={<LearningAnalyticsHub />} />
+                  <Route path="/student/competency-analysis" element={<LearningAnalyticsHub />} />
                   <Route path="/student/join-course" element={<JoinCoursePage />} />
                   <Route path="/student/exam-room" element={<ExamRoom />} />
                   <Route path="/student/class-hub/:classId" element={<SubjectStudyHub />} />

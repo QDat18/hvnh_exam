@@ -150,4 +150,7 @@ public interface FlashcardRepository extends JpaRepository<Flashcard, UUID> {
     long countByStudentIdAndProficiencyLevel(UUID studentId, String proficiencyLevel);
 
     long countByStudentId(UUID studentId);
+
+    @Query("SELECT f.studentDocumentId, COUNT(f) FROM Flashcard f WHERE f.studentDocumentId IN :docIds GROUP BY f.studentDocumentId")
+    List<Object[]> countFlashcardsByDocIds(@Param("docIds") List<UUID> docIds);
 }

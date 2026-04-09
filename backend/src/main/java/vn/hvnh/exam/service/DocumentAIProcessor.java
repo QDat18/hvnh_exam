@@ -19,6 +19,10 @@ import vn.hvnh.exam.entity.sql.*;
 import vn.hvnh.exam.repository.sql.*;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -31,6 +35,7 @@ public class DocumentAIProcessor {
     private final FlashcardRepository flashcardRepo;
     private final LLMIntegrationService llmService;
     private final ObjectMapper objectMapper;
+    private final String uploadDir = "uploads/student-documents";
 
     public DocumentAIProcessor(
         StudentDocumentRepository documentRepo,
@@ -125,6 +130,25 @@ public class DocumentAIProcessor {
         doc.setProcessingStatus("PROCESSING");
         doc.setIsAiEnabled(enableAI);
         doc.setUploadedAt(LocalDateTime.now());
+        
+        // Save file to disk
+        try {
+            Path root = Paths.get(uploadDir);
+            if (!Files.exists(root)) {
+                Files.createDirectories(root);
+            }
+            
+            String filename = doc.getStudentDocId() + "_" + file.getOriginalFilename();
+            Path targetPath = root.resolve(filename);
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            
+            // Set fileUrl for the frontend to call download endpoint
+            doc.setFileUrl("/api/student/study-hub/documents/download/" + doc.getStudentDocId());
+        } catch (IOException e) {
+            log.error("Failed to save file to disk", e);
+            // We can still proceed with text extraction if bytes were already read, 
+            // but fileUrl won't be available for download.
+        }
         
         return documentRepo.save(doc);
     }

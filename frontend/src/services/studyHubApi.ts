@@ -142,6 +142,9 @@ export const studyHubApi = {
     reviewCard: (flashcardId: string, quality: number): Promise<AxiosResponse<{ message: string }>> => {
         return axiosClient.post(`/student/study-hub/flashcards/${flashcardId}/review`, { quality });
     },
+    submitFlashcardSession: (payload: any): Promise<AxiosResponse<any>> => {
+        return axiosClient.post(`/student/study-hub/flashcards/session-complete`, payload);
+    },
     chatWithDocument: (docId: string, message: string): Promise<AxiosResponse<{ answer: string }>> => {
         return axiosClient.post(`/student/study-hub/documents/${docId}/chat`, { message });
     },
@@ -214,4 +217,9 @@ export const studyHubApi = {
         axiosClient.get('/student/study-hub/competency-analysis'),
 
     getDocumentSubjects: () => axiosClient.get('/student/study-hub/documents/subjects'),
+    downloadDocument: (docId: string): Promise<AxiosResponse<Blob>> => {
+        return axiosClient.get(`/student/study-hub/documents/download/${docId}`, {
+            responseType: 'blob'
+        });
+    }
 };

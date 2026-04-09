@@ -19,6 +19,7 @@ export interface AuthContextType {
     user: AppUser | null;
     loading: boolean;
     logout: () => void;
+    refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,8 +56,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
         });
 
-        // 2. Lắng nghe sự kiện thay đổi (Login/Logout)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        // 2. Lắng nghe sự kiện thay đổi (Login/Logout/Password Recovery)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                // User clicked reset password link → Supabase cấp session tạm
+                // Không sync user ở đây, để UpdatePasswordPage xử lý
+                console.log('[AUTH] Password recovery event received');
+                setLoading(false);
+                return;
+            }
+
             if (session) {
                 syncUser();
             } else {
@@ -68,13 +77,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return () => subscription.unsubscribe();
     }, []);
 
+    // Hàm để gọi thủ công sau khi Login thành công
+    const refreshUser = async () => {
+        setLoading(true);
+        await syncUser();
+    };
+
     const logout = async () => {
         await authService.logout();
         setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, logout }}>
+        <AuthContext.Provider value={{ user, loading, logout, refreshUser }}>
             {!loading && children}
         </AuthContext.Provider>
     );

@@ -31,13 +31,17 @@ const HeroSection = React.memo(({ userName, greeting, onStartPractice, onFlashca
                     <Zap size={14} style={{ color: '#ffd700' }} />
                     <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '1px', color: '#ffd700' }}>HỆ THỐNG ÔN TẬP THÔNG MINH</span>
                 </div>
-                {/* ★ LCP element — render ngay, không bị block bởi loading state */}
-                <h1 className="text-white mb-2 hero-title">
+
+                {/* ★ SỬA LẠI THÀNH CHỮ TRẮNG CHO NỔI BẬT TRÊN NỀN TỐI */}
+                <h1 className="mb-2 hero-title text-white">
                     {greeting}, <span className="text-highlight-gold">{userName}</span>!
                 </h1>
-                <p className="text-white/80 text-lg mb-4 opacity-95 max-w-lg fw-500">
+
+                {/* ★ Ép màu #e2e8f0 trực tiếp để không bị class khác ghi đè */}
+                <p className="text-lg mb-4 opacity-95 max-w-lg fw-500" style={{ color: '#e2e8f0' }}>
                     Sẵn sàng bứt phá hôm nay chưa? Các lộ trình ôn tập AI đã được chuẩn bị riêng cho môn học này.
                 </p>
+
                 <div className="d-flex gap-3">
                     <button className="btn-v4-primary-navy" onClick={onStartPractice}>
                         Bắt đầu luyện tập <ArrowRight size={18} />
@@ -51,8 +55,8 @@ const HeroSection = React.memo(({ userName, greeting, onStartPractice, onFlashca
                 <div className="ai-advisor-navy glass-card-navy p-4 text-center" style={{ borderRadius: '40px' }}>
                     <div className="brain-pulse-navy mb-3 mx-auto"><Brain size={32} color="#fff" /></div>
                     <h5 className="text-white fw-bold mb-2">Cố vấn AI đề xuất</h5>
-                    <p className="text-white/70 small mb-0 px-4 lh-lg">
-                        Ôn tập <b>{dueCount} thẻ</b> đến hạn để duy trì trí nhớ dài hạn hiệu quả nhất.
+                    <p className="small mb-0 px-4 lh-lg" style={{ color: '#cbd5e1' }}>
+                        Ôn tập <b className="text-white">{dueCount} thẻ</b> đến hạn để duy trì trí nhớ dài hạn hiệu quả nhất.
                     </p>
                 </div>
             </div>
@@ -61,14 +65,15 @@ const HeroSection = React.memo(({ userName, greeting, onStartPractice, onFlashca
 ));
 
 // ─── Stat card với skeleton riêng ───
-const StatCard = React.memo(({ icon, value, label, loading, extraClass = '' }: {
+const StatCard = React.memo(({ icon, value, label, loading, onClick, extraClass = '' }: {
     icon: React.ReactNode;
     value: string | number;
     label: string;
     loading: boolean;
+    onClick?: () => void;
     extraClass?: string;
 }) => (
-    <div className={`stat-card-navy p-4 h-100 ${extraClass}`}>
+    <div className={`stat-card-navy p-4 h-100 ${extraClass} ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
         {loading ? (
             <>
                 <Skeleton width="48px" height="48px" borderRadius="14px" />
@@ -92,7 +97,8 @@ const StatCard = React.memo(({ icon, value, label, loading, extraClass = '' }: {
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 'classes' }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { globalSubjects, selectedSubjectId } = useOutletContext<any>();
+    const outletContext = useOutletContext<any>() || {};
+    const { globalSubjects = [], selectedSubjectId = '' } = outletContext;
 
     // Tách loading thành 2 phase: stats (ưu tiên cao) và activities (lazy)
     const [statsLoading, setStatsLoading] = useState(true);
@@ -120,10 +126,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
         const loadCriticalData = async () => {
             setStatsLoading(true);
             try {
-                const [classesRes, docsRes, dueRes] = await Promise.all([
+                const [classesRes, docsRes, dueRes, statsRes] = await Promise.all([
                     studyHubApi.getMyClasses(),
                     studyHubApi.getDocuments(selectedSubjectId, 0, 100),
-                    studyHubApi.getDueFlashcards()
+                    studyHubApi.getDueFlashcards(),
+                    studyHubApi.getDetailedStats()
                 ]);
                 if (!mountedRef.current) return;
 
@@ -131,12 +138,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                 setSubjects(classList);
                 const docs = docsRes.data?.documents || [];
                 const dueInfo = dueRes.data || { dueCount: 0 };
+                const globalFlashcards = statsRes.data?.overallStats?.total || 0;
 
                 setStats(prev => ({
                     ...prev,
                     classes: classList.length,
                     documents: docs.length,
-                    flashcards: docs.reduce((acc: number, d: any) => acc + (d.flashcardCount || 0), 0),
+                    flashcards: globalFlashcards,
                     dueCount: dueInfo.dueCount || 0,
                 }));
             } catch (err) {
@@ -159,7 +167,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
 
                 const data = historyRes.data as any;
                 const fullHistory = data?.sessions || data || [];
-                
+
                 const avgScoreValue = fullHistory.length > 0
                     ? (fullHistory.reduce((acc: number, h: any) => acc + (h.score || 0), 0) / fullHistory.length)
                     : 0;
@@ -171,7 +179,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                     return {
                         id: h.sessionId || h.id,
                         title: `Luyện tập: ${h.subjectName || 'Môn học'}`,
-                        subject: `Đúng: ${h.correctAnswers || 0}/${h.numQuestions || 0}`,
+                        subject: `Đúng: ${h.correctAnswers || 0}/${h.totalQuestions || 0}`,
                         time: h.endTime ? new Date(h.endTime).toLocaleDateString('vi-VN') : 'Đang làm',
                         icon: isHighScorer ? <Trophy size={14} /> : <FileText size={14} />,
                         color: isHighScorer ? '#10b981' : '#6366f1'
@@ -209,10 +217,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                 {/* STATS — skeleton từng card, không block cả trang */}
                 <div className="row g-4 mb-4">
                     {[
-                        { icon: <BookOpen size={20} />, value: stats.classes, label: 'Lớp học đăng ký' },
-                        { icon: <FileText size={20} />, value: stats.documents, label: 'Tài liệu đã tải lên' },
-                        { icon: <Zap size={20} />, value: stats.flashcards, label: 'Thẻ nhớ đã tạo' },
-                        { icon: <Trophy size={20} />, value: `${stats.avgScore.toFixed(1)}/10`, label: 'Điểm đánh giá TB', extraClass: 'score-navy-gradient' },
+                        { icon: <BookOpen size={20} />, value: stats.classes, label: 'Lớp học đăng ký', path: '/student/my-classes' },
+                        { icon: <FileText size={20} />, value: stats.documents, label: 'Tài liệu đã tải lên', path: '/student/documents' },
+                        { icon: <Zap size={20} />, value: stats.flashcards, label: 'Thẻ nhớ đã tạo', path: '/student/flashcards' },
+                        { icon: <Trophy size={20} />, value: `${stats.avgScore.toFixed(1)}/10`, label: 'Điểm đánh giá TB', extraClass: 'score-navy-gradient', path: '/student/analytics' },
                     ].map((s, i) => (
                         <div key={i} className="col-12 col-md-6 col-xl-3">
                             <StatCard
@@ -220,6 +228,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                                 value={s.value}
                                 label={s.label}
                                 loading={i < 3 ? statsLoading : activitiesLoading}
+                                onClick={() => navigate(s.path)}
                                 extraClass={(s as any).extraClass}
                             />
                         </div>
@@ -292,9 +301,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                                             <div className="act-content-v4">
                                                 <div className="act-title text-navy">Luyện tập: {session.subjectName || 'Môn học'}</div>
                                                 <div className="act-meta text-slate-400">
-                                                    <span>{session.endTime ? new Date(session.endTime).toLocaleDateString('vi-VN') : 'Đang làm'}</span>
+                                                    <span>{session.completedAt ? new Date(session.completedAt).toLocaleDateString('vi-VN') : 'Đang làm'}</span>
                                                     <span className="dot mx-2"></span>
-                                                    <span>Đúng: {session.correctAnswers || 0}/{session.numQuestions || 0}</span>
+                                                    <span>Đúng: {session.correctAnswers || 0}/{session.totalQuestions || 0}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -328,13 +337,36 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
 
                 /* ★ Bỏ animation-delay & opacity:0 khởi tạo — LCP element paint ngay */
                 .hero-title {
-                    font-size: clamp(2rem, 5vw, 3.5rem);
+                    font-size: clamp(1.75rem, 5vw, 3.5rem);
                     font-weight: 900;
-                    letter-spacing: -2px;
-                    line-height: 1.1;
+                    letter-spacing: -1.5px;
+                    line-height: 1.15;
                     contain: layout style;
                 }
+                /* SỬA ĐỔI TẠI ĐÂY: Thêm class text-greeting-color */
+                .text-greeting-color { color: rgba(255,255,255,0.8); }
                 .text-highlight-gold { color: var(--gold); text-shadow: 0 0 25px rgba(251, 191, 36, 0.4); }
+
+                @media (max-width: 768px) {
+                    .hero-card-navy { border-radius: 32px !important; padding: 24px !important; }
+                    .hero-title { font-size: 1.8rem; letter-spacing: -0.5px; }
+                    .btn-v4-primary-navy, .btn-v4-outline-white { padding: 12px 24px; font-size: 0.9rem; width: 100%; justify-content: center; }
+                    .d-flex.gap-3 { flex-direction: column; gap: 12px !important; }
+                    .stat-val-v4 { font-size: 1.8rem; }
+                    .section-header-navy { font-size: 1.4rem; }
+                    .course-card-navy { border-radius: 32px; padding: 20px !important; }
+                    .activity-container-navy { padding: 24px !important; border-radius: 32px !important; }
+                }
+
+                @media (max-width: 480px) {
+                    .hero-card-navy { border-radius: 24px !important; padding: 20px !important; }
+                    .hero-title { font-size: 1.5rem; }
+                    .stat-val-v4 { font-size: 1.5rem; letter-spacing: -1px; }
+                    .stat-label-v4 { font-size: 0.8rem; }
+                    .stat-card-navy { padding: 1.25rem !important; border-radius: 24px; }
+                    .course-card-navy { border-radius: 24px; }
+                    .course-name-navy { font-size: 1.2rem; }
+                }
 
                 .btn-v4-primary-navy {
                     background: var(--gold); color: #001f3f; border: none; padding: 16px 36px; border-radius: 20px;
@@ -401,13 +433,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
             case 'documents': return <DocumentManagerTab subjectId={selectedSubjectId} />;
             case 'flashcards': return <AITutorSpace subjectId={selectedSubjectId} />;
             case 'practice': return <PracticeZoneTab subjectId={selectedSubjectId} />;
-            case 'analytics': return (
-                <div className="p-5 text-center bg-white rounded-5 border border-slate-200 shadow-sm">
-                    <Trophy size={48} color="#6366f1" className="mb-3 opacity-20" />
-                    <h4 className="fw-900" style={{ color: '#1e293b' }}>Phân tích năng lực</h4>
-                    <p className="text-slate-500">Hệ thống đang tổng hợp dữ liệu luyện tập của bạn.</p>
-                </div>
-            );
             default: return <StudentClassesTab />;
         }
     };

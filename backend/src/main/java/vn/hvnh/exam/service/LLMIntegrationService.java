@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -14,141 +15,102 @@ import java.util.*;
 
 @Service
 public class LLMIntegrationService {
-
     private static final Logger log = LoggerFactory.getLogger(LLMIntegrationService.class);
 
-    @Value("${groq.api.key:}")
+    @Value("${ai.api.key:}")
     private String apiKey;
+
+    @Value("${ai.groq.url:https://api.groq.com/openai/v1/chat/completions}")
+    private String apiUrl;
+
+    @Value("${ai.groq.model:llama-3.3-70b-versatile}")
+    private String modelName;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    private static final int MAX_RETRIES = 5;
+    private static final long BASE_RETRY_DELAY_MS = 2000;
 
     public LLMIntegrationService(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
 
-    private static final int MAX_RETRIES = 5;
-    private static final long BASE_RETRY_DELAY_MS = 2000;
-
-    /**
-     * Hàm Public để gọi từ DocumentAIProcessor
-     */
     public String callAI(String prompt) {
         return callAI(prompt, 1);
     }
 
-    /**
-     * Xử lý gọi API sang hệ thống Groq (Llama 3)
-     */
     private String callAI(String prompt, int attempt) {
         try {
             validateApiKey();
 
-            // 1. Cấu hình Groq API
-            String apiUrl = "https://api.groq.com/openai/v1/chat/completions";
-            String modelName = "llama-3.3-70b-versatile";
-
-            // 2. Tạo Headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
 
-            // 3. Tạo Body Dữ liệu
-            Map<String, Object> message = new HashMap<>();
-            message.put("role", "user");
-            message.put("content", prompt);
-
+            // Sử dụng Map cho linh hoạt, nhưng khuyên dùng Record/DTO
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", modelName);
-            requestBody.put("messages", List.of(message));
-            requestBody.put("temperature", 0.2); 
+            requestBody.put("messages", List.of(Map.of("role", "user", "content", prompt)));
+            requestBody.put("temperature", 0.6);
+            
+            // Removed chat_template_kwargs for Groq compatibility
 
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
-            log.info("🚀 Gọi Groq AI | Model: {} | Attempt: {}/{}", modelName, attempt, MAX_RETRIES);
-            
-            // 4. Gửi Request
+            log.info("🚀 Calling AI | Model: {} | Attempt: {}/{}", modelName, attempt, MAX_RETRIES);
+
             ResponseEntity<String> response = restTemplate.exchange(
-                    apiUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    String.class
+                    apiUrl, HttpMethod.POST, requestEntity, String.class
             );
 
-            // 5. Parse JSON
             JsonNode rootNode = objectMapper.readTree(response.getBody());
-            String aiResponseText = rootNode.path("choices")
-                    .get(0)
-                    .path("message")
-                    .path("content")
-                    .asText();
-
+            String aiResponseText = rootNode.path("choices").get(0).path("message").path("content").asText();
+            
             return cleanMarkdownCodeBlocks(aiResponseText);
 
-        } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
-            log.warn("⚠️ AI Rate Limit (429) hit on attempt {}. Waiting to retry...", attempt);
-            if (attempt < MAX_RETRIES) {
-                try {
-                    // Groq thường yêu cầu đợi ~6-10s cho Rate Limit
-                    long waitTime = 7000 + (attempt * 3000); 
-                    log.info("⏳ Waiting {}ms before retrying AI API...", waitTime);
-                    Thread.sleep(waitTime);
-                    return callAI(prompt, attempt + 1);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Thread interrupted during retry wait", ie);
-                }
-            }
-            throw new RuntimeException("AI API failed: Rate limit exceeded after " + MAX_RETRIES + " attempts", e);
+        } catch (HttpClientErrorException.TooManyRequests e) {
+            return handleRetry(prompt, attempt, 3000 + (attempt * 2000L), "Rate limit (429)");
         } catch (RestClientException e) {
-            log.error("❌ Lỗi gọi AI API (lần {}): {}", attempt, e.getMessage());
-            if (attempt < MAX_RETRIES) {
-                try {
-                    long waitTime = BASE_RETRY_DELAY_MS * (long) Math.pow(2, attempt - 1);
-                    Thread.sleep(waitTime);
-                    return callAI(prompt, attempt + 1);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Thread interrupted during retry wait", ie);
-                }
-            }
-            throw new RuntimeException("AI API failed after " + MAX_RETRIES + " attempts", e);
+            long waitTime = BASE_RETRY_DELAY_MS * (long) Math.pow(2, attempt - 1);
+            return handleRetry(prompt, attempt, waitTime, "API Error: " + e.getMessage());
         } catch (Exception e) {
-            log.error("❌ Lỗi parse dữ liệu từ AI: {}", e.getMessage(), e);
-            throw new RuntimeException("Không thể đọc phản hồi từ AI", e);
+            log.error("❌ Unexpected error: {}", e.getMessage(), e);
+            throw new RuntimeException("Không thể xử lý phản hồi từ AI", e);
         }
     }
 
-    /**
-     * Dọn dẹp chuỗi JSON (Bỏ block ```json ... ```)
-     */
-    private String cleanMarkdownCodeBlocks(String text) {
-        String cleaned = text.trim();
-        
-        // Tìm vị trí mở ngoặc vuông đầu tiên và đóng ngoặc vuông cuối cùng
-        int startIndex = cleaned.indexOf('[');
-        int endIndex = cleaned.lastIndexOf(']');
-        
-        if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
-            // Cắt đúng phần mảng JSON ra
-            cleaned = cleaned.substring(startIndex, endIndex + 1);
-        } else {
-             // Nếu không có mảng, dùng cách xử lý markdown cũ
-            if (cleaned.startsWith("```json")) {
-                cleaned = cleaned.substring(7);
-            } else if (cleaned.startsWith("```")) {
-                cleaned = cleaned.substring(3);
-            }
-            if (cleaned.endsWith("```")) {
-                cleaned = cleaned.substring(0, cleaned.length() - 3);
+    private String handleRetry(String prompt, int attempt, long waitTime, String reason) {
+        if (attempt < MAX_RETRIES) {
+            log.warn("⚠️ {} on attempt {}. Retrying in {}ms...", reason, attempt, waitTime);
+            try {
+                Thread.sleep(waitTime);
+                return callAI(prompt, attempt + 1);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Retry interrupted", ie);
             }
         }
-        
-        return cleaned.trim();
+        throw new RuntimeException("AI API failed after " + MAX_RETRIES + " attempts. Last reason: " + reason);
     }
+
+    private String cleanMarkdownCodeBlocks(String text) {
+        if (text == null) return "";
+        String cleaned = text.trim();
+        int startIndex = cleaned.indexOf('[');
+        int endIndex = cleaned.lastIndexOf(']');
+        if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+            return cleaned.substring(startIndex, endIndex + 1);
+        }
+        // Fallback cho markdown block
+        return cleaned.replaceAll("(?s)```json\\s*(.*?)\\s*```", "$1")
+                      .replaceAll("(?s)```\\s*(.*?)\\s*```", "$1")
+                      .trim();
+    }
+
     private void validateApiKey() {
-        if (apiKey == null || apiKey.isEmpty() || apiKey.equals("your-api-key-here")) {
+        if (apiKey == null || apiKey.isBlank()) {
             throw new RuntimeException("API key chưa được cấu hình trong application.properties");
         }
     }

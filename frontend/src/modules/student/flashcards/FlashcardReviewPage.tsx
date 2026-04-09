@@ -31,6 +31,7 @@ const FlashcardReviewPage: React.FC = () => {
         learning: 0,
         responses: [] as number[]
     });
+    const [reviewsData, setReviewsData] = useState<{flashcardId: string, quality: number}[]>([]);
 
     useEffect(() => { fetchCards(); }, [fileId]);
 
@@ -125,29 +126,57 @@ const FlashcardReviewPage: React.FC = () => {
         }
     };
 
+    const submitSession = async (allReviews: any[]) => {
+        const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+        const knownCount = allReviews.filter(r => r.quality >= 4).length;
+        const learningCount = allReviews.filter(r => r.quality < 4).length;
+
+        const payload = {
+            documentId: fileId || null,
+            subjectId: subjectId || null,
+            totalCards: allReviews.length,
+            knownCards: knownCount,
+            learningCards: learningCount,
+            timeSpentSeconds: timeSpent,
+            reviews: allReviews
+        };
+
+        localStorage.setItem('pendingFlashcardSession', JSON.stringify(payload));
+        try {
+            await studyHubApi.submitFlashcardSession(payload);
+            localStorage.removeItem('pendingFlashcardSession');
+        } catch (err: any) {
+            if (err.response?.status !== 401) {
+                toast.error("Lỗi khi lưu kết quả. Dữ liệu đã được lưu tạm.");
+            }
+        }
+    };
+
     const handleReview = async (quality: number) => {
         if (isExiting) return;
         const currentCard = dueCards[currentIndex];
         const cardId = currentCard.flashcardId || (currentCard as any).id;
-        try {
-            await studyHubApi.reviewCard(cardId, quality);
-            const newStats = {
-                ...sessionStats,
-                reviewed: sessionStats.reviewed + 1,
-                mastered: quality >= 4 ? sessionStats.mastered + 1 : sessionStats.mastered,
-                learning: quality < 4 ? sessionStats.learning + 1 : sessionStats.learning,
-                responses: [...sessionStats.responses, quality]
-            };
-            setSessionStats(newStats);
-            if (quality >= 4) triggerConfetti();
-            if (currentIndex < dueCards.length - 1) {
-                goNext();
-            } else {
-                setShowCelebration(true);
-                setTimeout(() => setSessionComplete(true), 1500);
-            }
-        } catch (error) {
-            toast.error("Lỗi khi lưu kết quả.");
+        
+        const newReviews = [...reviewsData, { flashcardId: cardId, quality }];
+        setReviewsData(newReviews);
+
+        const newStats = {
+            ...sessionStats,
+            reviewed: sessionStats.reviewed + 1,
+            mastered: quality >= 4 ? sessionStats.mastered + 1 : sessionStats.mastered,
+            learning: quality < 4 ? sessionStats.learning + 1 : sessionStats.learning,
+            responses: [...sessionStats.responses, quality]
+        };
+        setSessionStats(newStats);
+        
+        if (quality >= 4) triggerConfetti();
+        
+        if (currentIndex < dueCards.length - 1) {
+            goNext();
+        } else {
+            setShowCelebration(true);
+            submitSession(newReviews);
+            setTimeout(() => setSessionComplete(true), 1500);
         }
     };
 
@@ -256,21 +285,21 @@ const FlashcardReviewPage: React.FC = () => {
     else wrapperClass += slideDir === 'next' ? ' fc-enter-right' : ' fc-enter-left';
 
     return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'linear-gradient(160deg, #F5F3FF 0%, #EDE9FE 50%, #E0E7FF 100%)', position: 'relative' }}>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'linear-gradient(160deg, #F5F3FF 0%, #EDE9FE 50%, #E0E7FF 100%)', position: 'relative' }}>
 
             {/* Ambient blobs */}
             <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
                 <div style={{ position: 'absolute', top: '-15%', left: '-10%', width: '480px', height: '480px', background: 'radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 70%)', borderRadius: '50%', animation: 'floatBlob 18s ease-in-out infinite alternate' }} />
                 <div style={{ position: 'absolute', bottom: '-15%', right: '-10%', width: '560px', height: '560px', background: 'radial-gradient(circle, rgba(79, 70, 229, 0.12) 0%, transparent 70%)', borderRadius: '50%', animation: 'floatBlob 22s ease-in-out infinite alternate-reverse' }} />
-                <div style={{ position: 'absolute', top: '35%', left: '45%', width: '360px', height: '360px', background: 'radial-gradient(circle, rgba(249, 115, 22, 0.08) 0%, transparent 70%)', borderRadius: '50%', animation: 'floatBlob 14s ease-in-out infinite alternate' }} />
             </div>
 
             {/* Header */}
-            <header style={{ padding: '1rem 2rem', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 10, boxShadow: '0 4px 24px rgba(79, 70, 229, 0.06)' }}>
+            <header className="review-header" style={{ padding: '1rem 2rem', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 10, boxShadow: '0 4px 24px rgba(79, 70, 229, 0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                     <button
                         onClick={() => navigate('/student/flashcards')}
-                        style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1.5px solid rgba(79, 70, 229, 0.15)', background: 'white', color: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.25s', boxShadow: '0 2px 8px rgba(79, 70, 229, 0.08)' }}
+                        className="header-action-btn"
+                        style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1.5px solid rgba(79, 70, 229, 0.15)', background: 'white', color: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.25s' }}
                         title="Quay lại"
                     >
                         <ArrowLeft size={18} />
@@ -278,12 +307,13 @@ const FlashcardReviewPage: React.FC = () => {
                     <button
                         onClick={shuffleCards}
                         title="Xáo trộn"
-                        style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1.5px solid rgba(79, 70, 229, 0.15)', background: isShuffled ? '#4F46E5' : 'white', color: isShuffled ? 'white' : '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.25s', boxShadow: '0 2px 8px rgba(79, 70, 229, 0.08)' }}
+                        className="header-action-btn d-none d-sm-flex"
+                        style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1.5px solid rgba(79, 70, 229, 0.15)', background: isShuffled ? '#4F46E5' : 'white', color: isShuffled ? 'white' : '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.25s' }}
                     >
                         <Shuffle size={16} />
                     </button>
-                    <div>
-                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#1E1B4B', fontFamily: "'Space Grotesk', sans-serif" }}>
+                    <div className="header-info">
+                        <p className="title-text" style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#1E1B4B', fontFamily: "'Space Grotesk', sans-serif" }}>
                             {fileId ? '📚 Theo tài liệu' : '🔥 Ôn tập hàng ngày'}
                         </p>
                         <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B7280', fontWeight: 600 }}>
@@ -292,28 +322,27 @@ const FlashcardReviewPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <div className="header-stats-area" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     {/* Progress bar */}
-                    <div style={{ width: '200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div className="progress-container" style={{ width: '200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 700, color: '#6B7280' }}>
                             <span>Tiến độ</span>
                             <span>{Math.round(progress)}%</span>
                         </div>
                         <div style={{ height: '8px', background: 'rgba(79, 70, 229, 0.1)', borderRadius: '8px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #4F46E5, #7C3AED)', borderRadius: '8px', transition: 'width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 0 10px rgba(79, 70, 229, 0.4)' }} />
+                            <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #4F46E5, #7C3AED)', borderRadius: '8px', transition: 'width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
                         </div>
                     </div>
 
                     {/* Stats */}
-                    <div style={{ display: 'flex', gap: '1.25rem' }}>
+                    <div className="stats-mini-grid" style={{ display: 'flex', gap: '1.25rem' }}>
                         {[
                             { val: sessionStats.mastered, label: '✅ Thuộc', color: '#10B981' },
-                            { val: accuracy + '%', label: '📈 Chính xác', color: '#4F46E5' },
-                            { val: dueCards.length - currentIndex, label: '⏳ Còn lại', color: '#F59E0B' },
+                            { val: accuracy + '%', label: '📊 Tỉ lệ', color: '#4F46E5' },
                         ].map(({ val, label, color }) => (
                             <div key={label} style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 900, color, fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1 }}>{val}</div>
-                                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.4px', marginTop: '3px' }}>{label}</div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 900, color, fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1 }}>{val}</div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.4px', marginTop: '3px' }}>{label}</div>
                             </div>
                         ))}
                     </div>
@@ -321,50 +350,62 @@ const FlashcardReviewPage: React.FC = () => {
             </header>
 
             {/* Main Card Area */}
-            <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 10, padding: '1.5rem' }}>
+            <main className="review-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 10, padding: '1.5rem' }}>
+                
+                <div className="card-outer-container" style={{ width: '100%', maxWidth: '800px', position: 'relative' }}>
+                    
+                    {/* Nav Arrow Left */}
+                    <button
+                        onClick={goPrev}
+                        disabled={currentIndex === 0 || isFlipped}
+                        className="nav-btn nav-btn-left"
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
 
-                {/* Nav Arrow Left */}
-                <button
-                    onClick={goPrev}
-                    disabled={currentIndex === 0 || isFlipped}
-                    style={{ position: 'absolute', left: '2rem', top: '50%', transform: 'translateY(-50%)', width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', border: '1.5px solid rgba(79, 70, 229, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentIndex === 0 || isFlipped ? 'not-allowed' : 'pointer', opacity: currentIndex === 0 || isFlipped ? 0.35 : 1, color: '#4F46E5', transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 8px 24px rgba(79, 70, 229, 0.1)', zIndex: 20 }}
-                >
-                    <ChevronLeft size={22} />
-                </button>
+                    {/* The Flashcard */}
+                    <div
+                        className={wrapperClass}
+                        onClick={toggleFlip}
+                        style={{ width: '100%', height: '480px', perspective: '2000px', cursor: 'pointer', position: 'relative' }}
+                    >
+                        <div className={`fc-inner ${isFlipped ? 'fc-flipped' : ''}`}>
 
-                {/* The Flashcard */}
-                <div
-                    className={wrapperClass}
-                    onClick={toggleFlip}
-                    style={{ width: '100%', maxWidth: '800px', height: '480px', perspective: '2000px', cursor: 'pointer', position: 'relative' }}
-                >
-                    <div className={`fc-inner ${isFlipped ? 'fc-flipped' : ''}`}>
-
-                        {/* Front */}
-                        <div className="fc-face fc-front">
-                            <div className="fc-badge" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5' }}>
-                                ⚡ CÂU HỎI
+                            {/* Front */}
+                            <div className="fc-face fc-front">
+                                <div className="fc-badge" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5' }}>
+                                    ⚡ CÂU HỎI
+                                </div>
+                                <h2 className="fc-text">{currentCard.frontText}</h2>
+                                <p className="fc-hint">
+                                    <Eye size={14} /> Click hoặc nhấn Space để xem đáp án
+                                </p>
                             </div>
-                            <h2 className="fc-text">{currentCard.frontText}</h2>
-                            <p className="fc-hint">
-                                <Eye size={14} /> Click hoặc nhấn Space để xem đáp án
-                            </p>
-                        </div>
 
-                        {/* Back */}
-                        <div className="fc-face fc-back">
-                            <div className="fc-badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669' }}>
-                                ✨ ĐÁP ÁN
+                            {/* Back */}
+                            <div className="fc-face fc-back">
+                                <div className="fc-badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669' }}>
+                                    ✨ ĐÁP ÁN
+                                </div>
+                                <h3 className="fc-text" style={{ fontSize: '1.5rem', color: '#374151' }}>{currentCard.backText}</h3>
+                                <p className="fc-hint">
+                                    <RotateCcw size={14} /> Click để quay lại câu hỏi
+                                </p>
                             </div>
-                            <h3 className="fc-text" style={{ fontSize: '1.5rem', color: '#374151' }}>{currentCard.backText}</h3>
-                            <p className="fc-hint">
-                                <RotateCcw size={14} /> Click để quay lại câu hỏi
-                            </p>
                         </div>
                     </div>
 
-                    {/* Rating Panel */}
-                    <div className={`fc-rating-panel ${isFlipped && !isExiting ? 'fc-rating-show' : ''}`}>
+                    {/* Nav Arrow Right */}
+                    <button
+                        onClick={goNext}
+                        disabled={currentIndex === dueCards.length - 1 || isFlipped}
+                        className="nav-btn nav-btn-right"
+                    >
+                        <ChevronRight size={24} />
+                    </button>
+                    
+                    {/* Rating Panel (Desktop Style) */}
+                    <div className={`fc-rating-panel d-none d-md-block ${isFlipped && !isExiting ? 'fc-rating-show' : ''}`}>
                         <div className="fc-rating-group">
                             {[
                                 { q: 0, emoji: '😵', label: 'Trắng', cls: 'fc-btn-red' },
@@ -387,14 +428,30 @@ const FlashcardReviewPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Nav Arrow Right */}
-                <button
-                    onClick={goNext}
-                    disabled={currentIndex === dueCards.length - 1 || isFlipped}
-                    style={{ position: 'absolute', right: '2rem', top: '50%', transform: 'translateY(-50%)', width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', border: '1.5px solid rgba(79, 70, 229, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentIndex === dueCards.length - 1 || isFlipped ? 'not-allowed' : 'pointer', opacity: currentIndex === dueCards.length - 1 || isFlipped ? 0.35 : 1, color: '#4F46E5', transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 8px 24px rgba(79, 70, 229, 0.1)', zIndex: 20 }}
-                >
-                    <ChevronRight size={22} />
-                </button>
+                {/* Mobile Rating Bar (Visible on mobile when flipped) */}
+                <div className={`mobile-rating-bar d-md-none ${isFlipped && !isExiting ? 'show' : ''}`}>
+                    <div className="mobile-rating-content">
+                        <div className="mobile-rating-grid">
+                            {[
+                                { q: 0, emoji: '😵', cls: 'fc-btn-red' },
+                                { q: 1, emoji: '😟', cls: 'fc-btn-orange' },
+                                { q: 2, emoji: '😐', cls: 'fc-btn-yellow' },
+                                { q: 3, emoji: '🤔', cls: 'fc-btn-blue' },
+                                { q: 4, emoji: '😊', cls: 'fc-btn-teal' },
+                                { q: 5, emoji: '🤩', cls: 'fc-btn-green' },
+                            ].map(({ q, emoji, cls }) => (
+                                <button
+                                    key={q}
+                                    className={`mobile-rate-btn ${cls}`}
+                                    onClick={e => { e.stopPropagation(); handleReview(q); }}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                        <p style={{ margin: '8px 0 0', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center', color: '#6B7280' }}>Chọn mức độ ghi nhớ của bạn</p>
+                    </div>
+                </div>
             </main>
 
             <style>{`
@@ -403,6 +460,78 @@ const FlashcardReviewPage: React.FC = () => {
                 @keyframes floatBlob {
                     0% { transform: translate(0, 0) scale(1); }
                     100% { transform: translate(40px, 60px) scale(1.08); }
+                }
+
+                .nav-btn {
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 54px;
+                    height: 54px;
+                    border-radius: 50%;
+                    background: rgba(255,255,255,0.85);
+                    backdrop-filter: blur(10px);
+                    border: 1.5px solid rgba(79, 70, 229, 0.15);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #4F46E5;
+                    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.1);
+                    z-index: 20;
+                }
+                .nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+                .nav-btn-left { left: -70px; }
+                .nav-btn-right { right: -70px; }
+
+                @media (max-width: 992px) {
+                    .nav-btn-left { left: -20px; }
+                    .nav-btn-right { right: -20px; }
+                    .progress-container { width: 120px !important; }
+                }
+
+                @media (max-width: 576px) {
+                    .review-header { padding: 0.75rem 1rem !important; }
+                    .header-info .title-text { font-size: 0.8rem !important; }
+                    .header-stats-area { gap: 0.75rem !important; }
+                    .progress-container, .stats-mini-grid { display: none !important; }
+                    .review-main { padding: 1rem !important; }
+                    .wrapperClass, .fc-wrapper { height: 60vh !important; min-height: 380px !important; }
+                    .nav-btn { width: 42px; height: 42px; }
+                    .nav-btn-left { left: 0; }
+                    .nav-btn-right { right: 0; }
+                    .fc-face { padding: 2rem !important; }
+                    .fc-text { font-size: 1.4rem !important; }
+                }
+
+                .mobile-rating-bar {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100%;
+                    background: white;
+                    border-top: 1px solid rgba(0,0,0,0.05);
+                    padding: 1.25rem 1rem 2rem;
+                    transform: translateY(101%);
+                    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    z-index: 1000;
+                    box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+                }
+                .mobile-rating-bar.show { transform: translateY(0); }
+                .mobile-rating-grid {
+                    display: grid;
+                    grid-template-columns: repeat(6, 1fr);
+                    gap: 8px;
+                }
+                .mobile-rate-btn {
+                    height: 48px;
+                    border-radius: 12px;
+                    border: none;
+                    font-size: 1.5rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
 
                 /* 3D Card Mechanics */
@@ -452,7 +581,7 @@ const FlashcardReviewPage: React.FC = () => {
                     font-size: 1.9rem;
                     font-weight: 900;
                     color: #1E1B4B;
-                    line-height: 1.4;
+                    line-height: 1.35;
                     text-align: center;
                     margin: 1rem 0;
                     font-family: 'Space Grotesk', sans-serif;
@@ -557,16 +686,6 @@ const FlashcardReviewPage: React.FC = () => {
                 .fc-btn-blue    { background: #DBEAFE; color: #1E40AF; }
                 .fc-btn-teal    { background: #D1FAE5; color: #065F46; }
                 .fc-btn-green   { background: #A7F3D0; color: #064E3B; }
-
-                /* Keyboard shortcut keys legend */
-                .fc-keys-hint {
-                    position: absolute;
-                    bottom: 1rem;
-                    right: 1.5rem;
-                    font-size: 0.7rem;
-                    color: rgba(79, 70, 229, 0.4);
-                    font-weight: 600;
-                }
             `}</style>
         </div>
     );

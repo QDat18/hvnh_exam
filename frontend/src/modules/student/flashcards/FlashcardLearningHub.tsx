@@ -48,6 +48,23 @@ const FlashcardLearningHub: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
+
+            // Auto-submit pending session before fetching new stats
+            const pendingParams = localStorage.getItem('pendingFlashcardSession');
+            if (pendingParams) {
+                try {
+                    await studyHubApi.submitFlashcardSession(JSON.parse(pendingParams));
+                    localStorage.removeItem('pendingFlashcardSession');
+                    toast.success("Đã đồng bộ kết quả học tập trước đó!");
+                } catch (e: any) {
+                    console.error("Auto submit failed:", e);
+                    // if it's 401 we let it stay, otherwise remove it
+                    if (e.response?.status !== 401 && e.response?.status !== 403) {
+                        localStorage.removeItem('pendingFlashcardSession');
+                    }
+                }
+            }
+
             const [statsRes, cardsRes, docsRes, countsRes] = await Promise.all([
                 studyHubApi.getDetailedStats(),
                 studyHubApi.getFlashcardsBySubject(selectedSubjectId, 100, 'mixed'),

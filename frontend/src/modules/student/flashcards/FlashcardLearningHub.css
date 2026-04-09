@@ -82,7 +82,71 @@
 
   .hub-sidebar {
     position: static;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .sidebar-nav {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem !important;
+    padding: 0.5rem !important;
+  }
+  
+  .sidebar-btn {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.75rem 0.5rem !important;
+    gap: 0.5rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .sidebar-btn .nav-icon {
+    width: 32px !important;
+    height: 32px !important;
+    margin: 0 !important;
+  }
+  
+  .ai-coach-card {
+    display: none; /* Hide on mobile to save space, or put at bottom */
+  }
+}
+
+@media (max-width: 576px) {
+  .hub-container {
+    padding: 1rem;
+  }
+  
+  .hero-bento {
+    padding: 1.5rem !important;
+  }
+  
+  .hero-title {
+    font-size: 1.6rem !important;
+  }
+  
+  .hero-subtitle {
+     max-width: 100% !important;
+     font-size: 0.9rem !important;
+  }
+  
+  .stat-card {
+    padding: 1.25rem !important;
+  }
+  
+  .stat-value {
+    font-size: 1.8rem !important;
+  }
+  
+  .management-toolbar {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  
+  .btn-success {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem !important;
   }
 }
 

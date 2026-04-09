@@ -19,8 +19,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -392,6 +400,24 @@ public class StudentStudyController {
                 docPage = documentRepo.findByStudentIdOrderByUploadedAtDesc(studentId, pageable);
             }
             
+            // Populate flashcard counts
+            List<UUID> docIds = docPage.getContent().stream()
+                .map(StudentDocument::getStudentDocId)
+                .collect(Collectors.toList());
+            
+            if (!docIds.isEmpty()) {
+                List<Object[]> counts = flashcardRepo.countFlashcardsByDocIds(docIds);
+                Map<UUID, Long> countMap = counts.stream()
+                    .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> (Long) row[1]
+                    ));
+                
+                docPage.getContent().forEach(doc -> 
+                    doc.setFlashcardCount(countMap.getOrDefault(doc.getStudentDocId(), 0L))
+                );
+            }
+
             return ResponseEntity.ok(Map.of(
                 "documents", docPage.getContent(),
                 "currentPage", docPage.getNumber(),
@@ -488,6 +514,28 @@ public class StudentStudyController {
             return ResponseEntity.ok(Map.of("message", "Review recorded successfully"));
         } catch (Exception e) {
             log.error("Error reviewing flashcard", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/flashcards/session-complete")
+    public ResponseEntity<?> completeFlashcardSession(@RequestBody SubmitFlashcardSessionRequest request) {
+        try {
+            UUID studentId = getCurrentUserId();
+            
+            // 1. Process batch reviews if provided
+            if (request.getReviews() != null && !request.getReviews().isEmpty()) {
+                for (SubmitFlashcardSessionRequest.CardReview review : request.getReviews()) {
+                    flashcardService.recordReview(review.getFlashcardId(), review.getQuality());
+                }
+            }
+            
+            // 2. Save PracticeSession log
+            SubmitFlashcardSessionResponse response = practiceSessionService.saveFlashcardSession(studentId, request);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error completing flashcard session", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -1366,4 +1414,61 @@ public class StudentStudyController {
         }
     }
 
+    @DeleteMapping("/documents/{docId}")
+    @Transactional
+    public ResponseEntity<?> deleteDocument(@PathVariable UUID docId) {
+        log.info("🗑️ Deleting document: {}", docId);
+        Optional<StudentDocument> docOpt = documentRepo.findById(docId);
+        if (docOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        StudentDocument doc = docOpt.get();
+
+        // 1. Delete associated flashcards first
+        Page<Flashcard> cards = flashcardRepo.findByStudentDocumentIdOrderByCreatedAtDesc(docId, Pageable.unpaged());
+        flashcardRepo.deleteAll(cards.getContent());
+
+        // 2. Delete physical file if exists
+        try {
+            String filename = doc.getStudentDocId() + "_" + doc.getDocumentTitle();
+            Path filePath = Paths.get("uploads/student-documents").resolve(filename);
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+            log.error("Failed to delete physical file", e);
+        }
+
+        // 3. Delete document record
+        documentRepo.delete(doc);
+
+        return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+    }
+
+    @GetMapping("/documents/download/{docId}")
+    public ResponseEntity<Resource> downloadDocument(@PathVariable UUID docId) {
+        try {
+            Optional<StudentDocument> docOpt = documentRepo.findById(docId);
+            if (docOpt.isEmpty()) return ResponseEntity.notFound().build();
+            
+            StudentDocument doc = docOpt.get();
+            String filename = doc.getStudentDocId() + "_" + doc.getDocumentTitle();
+            Path filePath = Paths.get("uploads/student-documents").resolve(filename);
+            
+            Resource resource = new UrlResource(filePath.toUri());
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String contentType = "application/octet-stream";
+            if (doc.getFileType().equalsIgnoreCase("pdf")) contentType = "application/pdf";
+            
+            return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getDocumentTitle() + "\"")
+                .body(resource);
+        } catch (Exception e) {
+            log.error("Download error", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 }

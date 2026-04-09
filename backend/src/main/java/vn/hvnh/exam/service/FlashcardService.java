@@ -82,17 +82,18 @@ public class FlashcardService {
             proficiencyLevel = "LEARNING";
         } else {
             if (lastReview == null || lastReview.getIntervalDays() <= 1) {
-                intervalDays = 1;
-                proficiencyLevel = "LEARNING";
+                intervalDays = 1; // Giữ nguyên khoảng nghỉ ngắn (1 ngày) cho lần học đầu tiên
+                // UPDATE: Cập nhật luôn trạng thái để giao diện người dùng hiển thị sinh động hơn
+                proficiencyLevel = (quality >= 5) ? "MASTERED" : (quality == 4) ? "KNOWN" : "LEARNING";
             } else if (lastReview.getIntervalDays() <= 6) {
                 intervalDays = 6;
-                proficiencyLevel = "LEARNING";
+                proficiencyLevel = (quality >= 5) ? "MASTERED" : (quality == 4) ? "KNOWN" : "LEARNING";
             } else {
                 intervalDays = (int) Math.ceil(lastReview.getIntervalDays() * easinessFactor);
                 
-                if (intervalDays > 30) {
+                if (intervalDays > 30 || quality >= 5) {
                     proficiencyLevel = "MASTERED";
-                } else if (intervalDays > 14) {
+                } else if (intervalDays > 14 || quality == 4) {
                     proficiencyLevel = "KNOWN";
                 } else {
                     proficiencyLevel = "LEARNING";

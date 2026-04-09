@@ -65,21 +65,20 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
     };
 
     return (
-        <div className="position-fixed" style={{ bottom: '25px', right: '25px', zIndex: 9999 }}>
+        <div className="position-fixed floating-ai-container" style={{ bottom: '25px', right: '25px', zIndex: 9999 }}>
             
             {/* --- KHUNG CHAT --- */}
-            <div className={`bg-white shadow-lg d-flex flex-column overflow-hidden transition-all duration-300 ${isOpen ? 'opacity-100 scale-100 mb-3' : 'opacity-0 scale-0 mb-0'}`}
-                style={{ width: '360px', height: '520px', borderRadius: '1.2rem', transformOrigin: 'bottom right', pointerEvents: isOpen ? 'auto' : 'none', position: 'absolute', bottom: '70px', right: '0' }}>
+            <div className={`bg-white shadow-lg d-flex flex-column overflow-hidden transition-all duration-300 floating-chat-window ${isOpen ? 'opacity-100 scale-100 active' : 'opacity-0 scale-0'}`}
+                style={{ transformOrigin: 'bottom right', pointerEvents: isOpen ? 'auto' : 'none', position: 'absolute', bottom: '70px', right: '0' }}>
                 
                 {/* Header khung chat */}
-                <div className="p-3 d-flex align-items-center justify-content-between shadow-sm" style={{ background: 'linear-gradient(135deg, #002b5e 0%, #0d6efd 100%)', color: 'white' }}>
+                <div className="p-3 d-flex align-items-center justify-content-between shadow-sm chat-header" style={{ background: 'linear-gradient(135deg, #002b5e 0%, #0d6efd 100%)', color: 'white' }}>
                     <div className="d-flex align-items-center gap-3">
-                        {/* Dùng Logo HVNH nhỏ ở góc khung chat sẽ rất hợp */}
-                        <div className="bg-white rounded-circle p-1 d-flex align-items-center justify-content-center" style={{ width: '38px', height: '38px' }}>
+                        <div className="bg-white rounded-circle p-1 d-flex align-items-center justify-content-center chat-logo-container" style={{ width: '38px', height: '38px' }}>
                             <img src={logoHVNH} alt="HVNH Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                         <div>
-                            <h6 className="mb-0 fw-bold d-flex align-items-center gap-1">iReview AI Tutor <Sparkles size={14} className="text-warning"/></h6>
+                            <h6 className="mb-0 fw-bold d-flex align-items-center gap-1 chat-title-text">iReview AI Tutor <Sparkles size={14} className="text-warning"/></h6>
                             <small className="text-white-50" style={{ fontSize: '0.7rem' }}>Trợ lý học tập thông minh</small>
                         </div>
                     </div>
@@ -88,9 +87,9 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
 
                 {/* Chọn tài liệu */}
                 <div className="bg-light p-2 border-bottom">
-                    <div className="input-group input-group-sm">
-                        <span className="input-group-text bg-white text-muted border-end-0"><FileText size={14}/></span>
-                        <select className="form-select border-start-0 text-secondary fw-medium shadow-none bg-white cursor-pointer" 
+                    <div className="input-group input-group-sm shadow-none">
+                        <span className="input-group-text bg-white text-muted border-end-0 border-light"><FileText size={14}/></span>
+                        <select className="form-select border-start-0 border-light text-secondary fw-medium shadow-none bg-white cursor-pointer" 
                                 value={selectedDocId} onChange={(e) => setSelectedDocId(e.target.value)}>
                             <option value="general">🌍 Tư vấn tự do chung</option>
                             {documents.length > 0 && <option disabled>── Tài liệu học phần ──</option>}
@@ -103,8 +102,8 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
                 <div className="flex-grow-1 p-3 overflow-auto d-flex flex-column gap-3 custom-chat-bg">
                     {messages.map((msg, idx) => (
                         <div key={idx} className={`d-flex ${msg.sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
-                            <div className={`p-3 shadow-sm ${msg.sender === 'user' ? 'bg-primary text-white custom-rounded-user' : 'bg-white border text-dark custom-rounded-ai'}`} 
-                                 style={{ maxWidth: '85%', fontSize: '0.9rem', lineHeight: '1.4' }}>{msg.text}</div>
+                            <div className={`p-3 p-md-3 shadow-sm ${msg.sender === 'user' ? 'bg-primary text-white custom-rounded-user' : 'bg-white border text-dark custom-rounded-ai'}`} 
+                                 style={{ maxWidth: '85%', fontSize: '0.875rem', lineHeight: '1.5' }}>{msg.text}</div>
                         </div>
                     ))}
                     {isTyping && <div className="d-flex align-items-center text-muted small px-2 mt-1"><Loader2 size={14} className="me-2 spin text-primary" /> <span>AI đang suy nghĩ...</span></div>}
@@ -126,12 +125,37 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
 
             {/* --- NÚT BẤM MỞ CHAT HIỆN ĐẠI --- */}
             <button onClick={() => setIsOpen(!isOpen)} 
-                    className={`btn rounded-circle shadow-lg p-0 d-flex align-items-center justify-content-center transition-all ${isOpen ? 'rotate-90 bg-danger text-white border-0' : 'pulse-effect bg-primary text-white border-0'}`}
+                    className={`btn rounded-circle shadow-lg p-0 d-flex align-items-center justify-content-center transition-all floating-toggle-btn ${isOpen ? 'rotate-90 bg-danger text-white border-0' : 'pulse-effect bg-primary text-white border-0'}`}
                     style={{ width: '60px', height: '60px', position: 'absolute', bottom: '0', right: '0', background: isOpen ? '' : 'linear-gradient(135deg, #002b5e 0%, #0d6efd 100%)' }}>
                 {isOpen ? <X size={26} /> : <Bot size={28} />}
             </button>
 
             <style>{`
+                .floating-chat-window {
+                    width: 360px; 
+                    height: 520px; 
+                    border-radius: 1.2rem;
+                }
+
+                @media (max-width: 576px) {
+                    .floating-ai-container {
+                        bottom: 15px !important;
+                        right: 15px !important;
+                    }
+                    .floating-chat-window {
+                        width: calc(100vw - 30px);
+                        height: 70vh;
+                        max-height: 500px;
+                        right: 0;
+                        bottom: 75px;
+                    }
+                    .floating-toggle-btn {
+                        width: 54px !important;
+                        height: 54px !important;
+                    }
+                    .chat-title-text { font-size: 0.9rem; }
+                }
+
                 .spin { animation: spin 1s linear infinite; } 
                 @keyframes spin { 100% { transform: rotate(360deg); } } 
                 

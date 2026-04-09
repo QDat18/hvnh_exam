@@ -65,25 +65,25 @@ const JoinCoursePage: React.FC = () => {
                                     <div className="mb-4">
                                         <label className="form-label fw-bold text-dark mb-3">Mã lớp học phần</label>
                                         <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden border">
-                                            <span className="input-group-text bg-white border-0 text-muted ps-4">
+                                            <span className="input-group-text bg-white border-0 text-muted ps-3 ps-md-4">
                                                 <KeyRound size={24} />
                                             </span>
                                             <input 
                                                 type="text" 
-                                                className="form-control border-0 px-3 fw-bold text-uppercase tracking-wider" 
+                                                className="form-control border-0 px-2 px-md-3 fw-bold text-uppercase tracking-wider" 
                                                 placeholder="VD: X7K9PQ"
                                                 value={joinCode}
                                                 onChange={(e) => setJoinCode(e.target.value)}
                                                 maxLength={10}
                                                 required
-                                                style={{ fontSize: '1.25rem', letterSpacing: '2px' }}
+                                                style={{ fontSize: '1.15rem', letterSpacing: '2px' }}
                                             />
                                         </div>
                                     </div>
 
                                     <button 
                                         type="submit" 
-                                        className="btn btn-primary btn-lg w-100 fw-bold d-flex justify-content-center align-items-center rounded-3 shadow"
+                                        className="btn btn-primary btn-lg w-100 fw-bold d-flex justify-content-center align-items-center rounded-3 shadow py-3"
                                         disabled={isLoading || !joinCode.trim()}
                                     >
                                         {isLoading ? (
@@ -95,7 +95,7 @@ const JoinCoursePage: React.FC = () => {
                                 </form>
                             )}
                         </div>
-                        <div className="card-footer bg-light border-0 text-center py-4">
+                        <div className="card-footer bg-light border-0 text-center py-4 px-3 px-md-4">
                             <p className="small text-muted mb-0">
                                 Nếu không có mã tham gia, vui lòng liên hệ Giảng viên bộ môn hoặc xem thông báo trên cổng thông tin Khoa.
                             </p>
@@ -110,6 +110,12 @@ const JoinCoursePage: React.FC = () => {
                 @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 .input-group-lg .form-control:focus { box-shadow: none; }
                 .input-group:focus-within { border-color: #0d6efd !important; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+                
+                @media (max-width: 576px) {
+                    .card-body { padding: 1.5rem !important; }
+                    h2 { font-size: 1.5rem !important; }
+                    p { font-size: 0.9rem !important; }
+                }
             `}</style>
         </div>
     );

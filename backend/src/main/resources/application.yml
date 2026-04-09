@@ -53,6 +53,22 @@ spring:
       write-dates-as-timestamps: false
       fail-on-empty-beans: false
 
+  
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 # ===============================
 # Server
 # ===============================
@@ -84,7 +100,10 @@ supabase:
   bucket:
     name: documents
     
-groq:
+ai:
   api:
-    key: ${GROQ_API_KEY}
+    key: ${AI_API_KEY:}
+  nvidia:
+    url: ${AI_NVIDIA_URL:https://integrate.api.nvidia.com/v1/chat/completions}
+    model: ${AI_NVIDIA_MODEL:google/gemma-4-31b-it}
 

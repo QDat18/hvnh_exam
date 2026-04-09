@@ -49,7 +49,7 @@ public class SecurityConfig {
                 // 🔥 FIX 2: CHO PHÉP TẤT CẢ MỌI NGƯỜI VÀO XEM FILE TRONG UPLOADS
                 .requestMatchers("/uploads/**").permitAll()
 
-                // Public endpoints không cần token
+                // Public endpoints không cần token (Bao phủ cả có /api và không)
                 .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                 .requestMatchers("/error").permitAll() 
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
@@ -65,13 +65,28 @@ public class SecurityConfig {
             
         return http.build();
     }    
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", "https://hvnh-exam-review.vercel.app"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "x-auth-token"));
-        configuration.setExposedHeaders(List.of("x-auth-token"));
+        
+        // Dùng AllowedOriginPatterns thay vì AllowedOrigins để hỗ trợ wildcard (*) cho Vercel
+        configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173", 
+            "https://*.vercel.app", 
+            "https://*.onrender.com"
+        ));
+        
+        // Thêm PATCH vào các Method được cho phép
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        
+        // Cho phép tất cả các Header trong Request (tránh lỗi Preflight)
+        configuration.setAllowedHeaders(List.of("*"));
+        
+        // Expose Header ra để Frontend có thể đọc được
+        configuration.setExposedHeaders(List.of("Authorization", "x-auth-token"));
+        
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

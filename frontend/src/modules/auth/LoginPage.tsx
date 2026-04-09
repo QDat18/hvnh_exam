@@ -4,7 +4,7 @@
  * Bảng màu: BAV Navy & Gold phối hợp SaaS Interactive
  */
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
     Lock, Mail, Eye, EyeOff, Loader2,
@@ -26,7 +26,7 @@ interface FormErrors {
 }
 
 const LoginPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const navigate = useNavigate();
 
     const [email, setEmail] = useState('');
@@ -88,6 +88,8 @@ const LoginPage: React.FC = () => {
                 toast.info('🔐 Lần đầu đăng nhập, vui lòng đổi mật khẩu');
                 navigate('/change-password');
             } else {
+                // 🔥 QUAN TRỌNG: Đợi AuthContext cập nhật xong State mới chuyển hướng
+                await refreshUser();
                 toast.success('Đăng nhập thành công');
                 navigate('/');
             }
@@ -245,7 +247,7 @@ const LoginPage: React.FC = () => {
                                 <div className="input-group">
                                     <div className="label-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', marginBottom: '8px' }}>
                                         <label htmlFor="student-password" style={{ marginBottom: 0 }}>Mật khẩu</label>
-                                        <a href="/forgot-password" className="forgot-link">Quên mật khẩu?</a>
+                                        <Link to="/forgot-password" className="forgot-link">Quên mật khẩu?</Link>
                                     </div>
                                     <div className={`input-field ${touched.password && errors.password ? 'error' : ''}`}>
                                         <Lock size={18} />

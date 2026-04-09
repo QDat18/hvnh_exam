@@ -178,4 +178,39 @@ public class PracticeSessionService {
             .bestScore(bestScore != null ? bestScore : 0.0)
             .build();
     }
+
+    @Transactional
+    public SubmitFlashcardSessionResponse saveFlashcardSession(UUID studentId, SubmitFlashcardSessionRequest request) {
+        log.info("Saving flashcard session for student: {}", studentId);
+        
+        PracticeSession session = PracticeSession.builder()
+            .studentId(studentId)
+            .subjectId(request.getSubjectId())
+            .sessionType("FLASHCARD")
+            .studentDocumentId(request.getDocumentId())
+            .totalQuestions(request.getTotalCards())
+            .correctAnswers(request.getKnownCards())
+            .timeSpentSeconds(request.getTimeSpentSeconds())
+            .startedAt(LocalDateTime.now().minusSeconds(request.getTimeSpentSeconds() > 0 ? request.getTimeSpentSeconds() : 0))
+            .completedAt(LocalDateTime.now())
+            .build();
+            
+        double score = 0.0;
+        if (request.getTotalCards() > 0) {
+            score = ((double) request.getKnownCards() / request.getTotalCards()) * 10.0;
+        }
+        session.setScore(score);
+        session.setSourceType("STUDENT_DOCUMENT");
+        
+        session = sessionRepo.save(session);
+        
+        return SubmitFlashcardSessionResponse.builder()
+            .sessionId(session.getSessionId())
+            .totalCards(request.getTotalCards())
+            .knownCards(request.getKnownCards())
+            .learningCards(request.getLearningCards())
+            .score(score)
+            .timeSpentSeconds(request.getTimeSpentSeconds())
+            .build();
+    }
 }

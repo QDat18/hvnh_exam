@@ -65,7 +65,7 @@ public class JwtTokenProvider {
                 .setSubject(email)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 // Set hạn token là 24 giờ
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) 
+                .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 4)) // 4 hours
                 .signWith(getSigningKey())
                 .compact();
     }
