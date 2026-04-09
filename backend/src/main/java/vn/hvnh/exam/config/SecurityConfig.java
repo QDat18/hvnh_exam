@@ -78,10 +78,7 @@ public class SecurityConfig {
             "https://*.onrender.com"
         ));
         
-<<<<<<< HEAD
         // Thêm PATCH vào các Method được cho phép
-=======
->>>>>>> 8d091aa775be5c92b9be7db3e19c1d21a927b410
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         
         // Cho phép tất cả các Header trong Request (tránh lỗi Preflight)
@@ -89,10 +86,7 @@ public class SecurityConfig {
         
         // Expose Header ra để Frontend có thể đọc được
         configuration.setExposedHeaders(List.of("Authorization", "x-auth-token"));
-<<<<<<< HEAD
         
-=======
->>>>>>> 8d091aa775be5c92b9be7db3e19c1d21a927b410
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
