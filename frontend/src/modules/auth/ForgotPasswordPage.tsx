@@ -212,7 +212,7 @@ const ForgotPasswordPage: React.FC = () => {
                             <div className="fp-tips">
                                 <div className="fp-tip-item">
                                     <ShieldCheck size={16} />
-                                    <span>Link có hiệu lực trong <strong>1 giờ</strong></span>
+                                    <span>Link có hiệu lực trong <strong>10 phút</strong></span>
                                 </div>
                                 <div className="fp-tip-item">
                                     <Mail size={16} />
