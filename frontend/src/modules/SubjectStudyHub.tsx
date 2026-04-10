@@ -7,6 +7,7 @@ import FloatingAITutor from '../modules/student/FloatingAITutor';
 import axiosClient from '../services/axiosClient';
 import ExamBuilder from '../modules/teacher/ExamBuilder';
 import { toast } from 'react-toastify';
+import { getFullImageUrl } from '../utils/urlUtils';
 
 const SubjectStudyHub: React.FC = () => {
     const { classId } = useParams<{ classId: string }>();
@@ -86,13 +87,20 @@ const SubjectStudyHub: React.FC = () => {
 
     const getTeacherAvatar = (teacher: any) => {
         if (teacher.avatar && teacher.avatar.trim() !== '' && !teacher.avatar.includes('ui-avatars') && !teacher.avatar.includes('dicebear')) {
-            return teacher.avatar;
+            return getFullImageUrl(teacher.avatar);
         }
         const gender = teacher.gender ? teacher.gender.toString().toUpperCase() : '';
         if (gender === 'NỮ' || gender === 'FEMALE' || gender === 'NU') {
-            return 'https://tse4.mm.bing.net/th/id/OIP.aLVJAeJ4k0Sk6qAFaGwuzAHaHa?w=626&h=626&rs=1&pid=ImgDetMain&o=7&rm=3';
+            return 'https://tse4.mm.bing.net/th/id/OIP.aLVJAeJ4k0Sk6qAFaGwuzAHaGwuzAHaHa?w=626&h=626&rs=1&pid=ImgDetMain&o=7&rm=3';
         }
         return 'https://th.bing.com/th/id/OIP.684tcY3ThHrUDP8o6D3bnAHaLG?w=203&h=304&c=7&r=0&o=7&pid=1.7&rm=3';
+    };
+
+    const getStudentAvatar = (student: any) => {
+        if (student.avatar && student.avatar.trim() !== '' && (student.avatar.startsWith('http') || student.avatar.startsWith('/'))) {
+            return getFullImageUrl(student.avatar);
+        }
+        return `https://api.dicebear.com/9.x/initials/svg?seed=${student.fullName || 'SV'}&backgroundColor=003b70,002a50,0369a1&fontFamily=Inter&fontWeight=700`;
     };
 
     useEffect(() => {
@@ -139,9 +147,7 @@ const SubjectStudyHub: React.FC = () => {
     };
 
     const getFullFileUrl = (url: string) => {
-        if (!url) return '';
-        if (url.startsWith('http://') || url.startsWith('https://')) return url;
-        return `http://localhost:8080${url}`;
+        return getFullImageUrl(url);
     };
 
     const handlePreviewClick = async (doc: any) => {
@@ -256,9 +262,9 @@ const SubjectStudyHub: React.FC = () => {
     return (
         <div className="bg-main-light min-vh-100 pb-5 animation-fade-in" style={{ backgroundColor: '#f8fafc' }}>
             {/* HEADER */}
-            <div className="text-white py-3 py-md-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #003B70 0%, #002a50 100%)' }}>
+            <div className="text-white pt-2 pb-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #003B70 0%, #002a50 100%)', marginTop: '-24px', position: 'relative', zIndex: 10 }}>
                 <div className="container px-3 px-md-4" style={{ maxWidth: '1100px' }}>
-                    <button onClick={() => navigate(-1)} className="btn btn-link text-white p-0 mb-2 mb-md-3 text-decoration-none d-flex align-items-center gap-2 opacity-80 hover-opacity-100 transition-all" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                    <button onClick={() => navigate(-1)} className="btn btn-link text-white p-0 mb-3 text-decoration-none d-flex align-items-center gap-2 opacity-80 hover-opacity-100 transition-all" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
                         <i className="fa-solid fa-arrow-left" style={{ fontSize: '14px' }}></i> Quay lại
                     </button>
                     <div className="d-flex justify-content-between align-items-center gap-3">
@@ -301,13 +307,15 @@ const SubjectStudyHub: React.FC = () => {
                         {activeTab === 'stream' && (
                             <div className="d-flex flex-column gap-4 animation-slide-up">
                                 {/* Hero Banner for Stream */}
-                                <div className="card border-0 shadow-sm rounded-4 overflow-hidden position-relative" style={{ minHeight: '180px', background: 'linear-gradient(135deg, #003B70 0%, #0369a1 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div className="card-body p-4 d-flex flex-column justify-content-end position-relative z-1">
-                                        <div className="text-white-50 small fw-800 text-uppercase tracking-wider mb-1">Hiện đang học</div>
-                                        <h2 className="text-white fw-900 mb-0" style={{ fontSize: '1.8rem', letterSpacing: '-0.5px' }}>{hubData.subjectCode} - {hubData.subjectName}</h2>
+                                <div className="card border-0 shadow-sm rounded-4 overflow-hidden position-relative" style={{ minHeight: '160px', background: 'linear-gradient(135deg, #003B70 0%, #0369a1 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div className="card-body p-4 d-flex flex-column justify-content-center position-relative z-1">
+                                        <div className="text-white-50 small fw-800 text-uppercase tracking-wider mb-1" style={{ letterSpacing: '2px' }}>Hiện đang học</div>
+                                        <h2 className="text-white fw-900 mb-0" style={{ fontSize: '2.2rem', letterSpacing: '-1px' }}>
+                                            {hubData.subjectCode ? `${hubData.subjectCode} - ` : ''}{hubData.subjectName || hubData.className || 'Thông tin môn học'}
+                                        </h2>
                                     </div>
-                                    <div className="position-absolute rounded-circle bg-white opacity-5" style={{ width: '200px', height: '200px', top: '-100px', right: '-50px' }}></div>
-                                    <div className="position-absolute bg-white opacity-5" style={{ width: '2px', height: '100%', right: '80px', transform: 'rotate(45deg)' }}></div>
+                                    <div className="position-absolute rounded-circle bg-white opacity-5" style={{ width: '300px', height: '300px', top: '-150px', right: '-80px' }}></div>
+                                    <div className="position-absolute bg-white opacity-5" style={{ width: '2px', height: '140%', right: '120px', top: '-20%', transform: 'rotate(45deg)' }}></div>
                                 </div>
 
                                 {/* Announcement Card */}
@@ -576,7 +584,17 @@ const SubjectStudyHub: React.FC = () => {
                                                     <td className="ps-3 text-muted fw-bold">{index + 1}</td>
                                                     <td>
                                                         <div className="d-flex align-items-center gap-2">
-                                                            <img src={student.avatar} alt="avatar" className="rounded-circle shadow-sm flex-shrink-0" width="38" height="38" style={{ objectFit: 'cover' }} />
+                                                            <img
+                                                                src={getStudentAvatar(student)}
+                                                                alt="avatar"
+                                                                className="rounded-circle shadow-sm flex-shrink-0"
+                                                                width="40" height="40"
+                                                                style={{ objectFit: 'cover', border: '2px solid #fff' }}
+                                                                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                                                                    const target = e.currentTarget;
+                                                                    target.src = `https://api.dicebear.com/9.x/initials/svg?seed=${student.fullName || 'SV'}&backgroundColor=003b70&fontFamily=Inter`;
+                                                                }}
+                                                            />
                                                             <div className="min-width-0">
                                                                 <div className="fw-bold text-dark text-truncate" style={{ maxWidth: '150px' }}>{student.fullName}</div>
                                                                 <small className="text-muted d-sm-none">{student.studentId}</small>

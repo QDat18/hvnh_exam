@@ -10,6 +10,9 @@ import FloatingAITutor from '../FloatingAITutor';
 import { studyHubApi } from '../../../services/studyHubApi';
 import { toast } from 'react-toastify';
 import Skeleton from '../../../components/common/Skeleton';
+import { 
+    Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer 
+} from 'recharts';
 
 interface StudentDashboardProps {
     activeTabDefault?: 'classes' | 'documents' | 'flashcards' | 'practice' | 'analytics';
@@ -98,7 +101,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
     const { user } = useAuth();
     const navigate = useNavigate();
     const outletContext = useOutletContext<any>() || {};
-    const { globalSubjects = [], selectedSubjectId = '' } = outletContext;
+    const { globalSubjects = [], selectedSubjectId = '', mentorAdvice = null } = outletContext;
 
     // Tách loading thành 2 phase: stats (ưu tiên cao) và activities (lazy)
     const [statsLoading, setStatsLoading] = useState(true);
@@ -214,6 +217,20 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                     dueCount={stats.dueCount}
                 />
 
+                {/* AI Advisor Proactive Advice - HIGH VISIBILITY */}
+                {mentorAdvice && (
+                   <div className="mentor-nudge-banner mb-4 p-4 animation-slide-up" onClick={() => navigate('/student/analytics')}>
+                       <div className="d-flex align-items-center gap-3">
+                           <div className="mentor-nudge-icon"><Sparkles size={24} color="#ffd700" /></div>
+                           <div className="flex-grow-1">
+                               <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>TỪ CỐ VẤN iREVIEW AI</div>
+                               <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'white', fontStyle: 'italic', lineHeight: '1.4' }}>"{mentorAdvice}"</div>
+                           </div>
+                           <ChevronRight size={24} color="white" className="opacity-50" />
+                       </div>
+                   </div>
+                )}
+
                 {/* STATS — skeleton từng card, không block cả trang */}
                 <div className="row g-4 mb-4">
                     {[
@@ -281,7 +298,34 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                     </div>
 
                     <div className="col-12 col-xl-4">
-                        <div className="activity-container-navy p-5 rounded-[40px] bg-white border border-slate-100 shadow-xl shadow-slate-200/40 h-100">
+                        {/* Competency Radar Preview */}
+                        <div className="competency-card-navy p-4 rounded-[40px] bg-white border border-slate-100 shadow-xl mb-4" style={{ height: '350px' }}>
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                <h4 className="section-header-navy mb-0" style={{ fontSize: '1.2rem' }}>Hồ sơ năng lực</h4>
+                                <button className="btn btn-sm btn-link text-navy fw-bold" onClick={() => navigate('/student/analytics')}>Chi tiết</button>
+                            </div>
+                            <div className="flex-grow-1" style={{ height: '240px' }}>
+                                {statsLoading ? (
+                                    <Skeleton width="100%" height="100%" borderRadius="20px" />
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
+                                            { subject: 'Tài liệu', A: stats.documents, fullMark: 20 },
+                                            { subject: 'Luyện tập', A: stats.practiceHistory?.length || 0, fullMark: 20 },
+                                            { subject: 'Điểm số', A: stats.avgScore, fullMark: 10 },
+                                            { subject: 'Thẻ nhớ', A: stats.flashcards / 10, fullMark: 50 },
+                                            { subject: 'Đến hạn', A: stats.dueCount, fullMark: 20 }
+                                        ]}>
+                                            <PolarGrid stroke="#e2e8f0" />
+                                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} />
+                                            <Radar name="Student" dataKey="A" stroke="#003B70" fill="#003B70" fillOpacity={0.6} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="activity-container-navy p-5 rounded-[40px] bg-white border border-slate-100 shadow-xl shadow-slate-200/40 h-auto">
                             <h3 className="section-header-navy mb-4">Hoạt động gần đây</h3>
                             <div className="activity-list-v4">
                                 {activitiesLoading ? (
@@ -423,6 +467,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTabDefault = 
                 .icon-v4 { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
                 .bg-navy { background-color: var(--navy); }
                 .brain-pulse-navy { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; }
+
+                .mentor-nudge-banner {
+                    background: linear-gradient(135deg, #003B70 0%, #0056a3 100%);
+                    border-radius: 32px;
+                    border: 1.5px solid rgba(255,215,0,0.25);
+                    cursor: pointer;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                    box-shadow: 0 15px 35px -10px rgba(0, 59, 112, 0.4);
+                }
+                .mentor-nudge-banner:hover { transform: translateY(-3px); box-shadow: 0 20px 45px -10px rgba(0, 59, 112, 0.5); }
+                .mentor-nudge-icon { width: 56px; height: 56px; border-radius: 18px; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+                .animation-slide-up { animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+                @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
             `}</style>
         </div>
     );

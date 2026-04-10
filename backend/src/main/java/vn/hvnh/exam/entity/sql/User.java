@@ -78,6 +78,12 @@ public class User implements UserDetails {
     @Column(name = "password_changed")
     private Boolean passwordChanged = false;
 
+    @Column(name = "ai_mentor_advice", columnDefinition = "TEXT")
+    private String aiMentorAdvice;
+
+    @Column(name = "advice_updated_at")
+    private LocalDateTime adviceUpdatedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
@@ -145,6 +151,12 @@ public class User implements UserDetails {
     public void setPasswordChanged(Boolean passwordChanged) { this.passwordChanged = passwordChanged; }
     public User getCreatedBy() { return createdBy; }
     public void setCreatedBy(User createdBy) { this.createdBy = createdBy; }
+
+    public String getAiMentorAdvice() { return aiMentorAdvice; }
+    public void setAiMentorAdvice(String aiMentorAdvice) { this.aiMentorAdvice = aiMentorAdvice; }
+
+    public LocalDateTime getAdviceUpdatedAt() { return adviceUpdatedAt; }
+    public void setAdviceUpdatedAt(LocalDateTime adviceUpdatedAt) { this.adviceUpdatedAt = adviceUpdatedAt; }
 
     // UserDetails implementation
     @Override

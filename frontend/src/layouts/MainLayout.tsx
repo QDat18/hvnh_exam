@@ -12,8 +12,7 @@
  * 7. Brand name (LCP element ở sidebar): render content="iReview" ngay, không phụ thuộc API.
  */
 
-import * as React from 'react';
-import { useState, useRef, useEffect, useMemo, useTransition, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useTransition, useCallback } from 'react';
 import Skeleton from '../components/common/Skeleton';
 import { Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import logoHVNH from '../assets/images/LogoHVNH.png';
+import { getFullImageUrl } from '../utils/urlUtils';
 
 // ─── MobileBottomNav (không thay đổi) ───────────────────────────────────────
 const MobileBottomNav = ({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) => {
@@ -129,8 +129,8 @@ const StudyStatsCard = React.memo(({ stats }: { stats: { hours: number; quizzes:
     </div>
 ));
 
-// ─── MobileLayout (không thay đổi logic) ────────────────────────────────────
-const MobileLayout = ({ user, logout, navigate, location, menuItems, children }: any) => {
+// ─── MobileLayout ───────────────────────────────────────────────────────────
+const MobileLayout = ({ user, logout, navigate, location, menuItems, mentorAdvice, children }: any) => {
     // Determine active tab from URL path
     const getActiveTab = (path: string) => {
         if (path === '/student' || path === '/student/dashboard' || path === '/student/') return 'home';
@@ -185,7 +185,7 @@ const MobileLayout = ({ user, logout, navigate, location, menuItems, children }:
                     <div className="drawer">
                         <div className="drawer-header">
                             <div className="drawer-avatar">
-                                {user?.avatarUrl ? <img src={user.avatarUrl} alt="Avatar" loading="lazy" /> : <div className="avatar-placeholder large">{user?.fullName?.charAt(0).toUpperCase()}</div>}
+                                {user?.avatarUrl ? <img src={getFullImageUrl(user.avatarUrl)} alt="Avatar" loading="lazy" /> : <div className="avatar-placeholder large">{user?.fullName?.charAt(0).toUpperCase()}</div>}
                             </div>
                             <div className="drawer-user-info">
                                 <h3>{user?.fullName}</h3>
@@ -258,6 +258,19 @@ const MobileLayout = ({ user, logout, navigate, location, menuItems, children }:
                     {(location.pathname === '/student' || location.pathname === '/student/dashboard' || location.pathname === '/student/') ? (
                         <div className="content-padding">
                             <WelcomeCard user={user} />
+                            
+                            {/* Proactive AI Mentor Advice - Immediate visibility */}
+                            {user?.role === 'STUDENT' && mentorAdvice && (
+                                <div className="mentor-dashboard-card mb-4" onClick={() => navigate('/student/analytics?tab=overview')}>
+                                    <div className="mentor-card-icon"><Sparkles size={20} /></div>
+                                    <div className="mentor-card-body">
+                                        <div className="mentor-card-label">LỜI KHUYÊN TỪ iREVIEW AI</div>
+                                        <p className="mentor-card-text">{mentorAdvice}</p>
+                                    </div>
+                                    <ChevronRight size={20} className="mentor-card-arrow" />
+                                </div>
+                            )}
+
                             <StudyStatsCard stats={studyStats} />
                             <div className="section">
                                 <div className="section-header"><h3>Thao tác nhanh</h3></div>
@@ -386,6 +399,7 @@ const MainLayout = () => {
     // ★ globalSubjects: render UI ngay với state rỗng, fetch sau không block
     const [globalSubjects, setGlobalSubjects] = useState<any[]>([]);
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+    const [mentorAdvice, setMentorAdvice] = useState<string | null>(null);
     const subjectsFetched = useRef(false);
 
     useEffect(() => {
@@ -408,9 +422,13 @@ const MainLayout = () => {
                         setSelectedSubjectId(subs[0].subjectId);
                     }
                 }).catch(err => console.error("Error fetching global subjects:", err));
+
+                studyHubApi.getProactiveSuggestions().then(res => {
+                    setMentorAdvice(res.data?.advice || null);
+                }).catch(err => console.error("Error fetching mentor advice:", err));
             });
         }
-    }, [user]);
+    }, [user, studyHubApi]);
 
     // Early return for auth moved after hooks
 
@@ -514,8 +532,15 @@ const MainLayout = () => {
     // ─── RENDER LOGIC ────────────────────────────────────────────────────────
     if (isMobile) {
         return (
-            <MobileLayout user={user} logout={logout} navigate={navigate} location={location} menuItems={menuItems}>
-                <Outlet context={{ globalSubjects, selectedSubjectId, setSelectedSubjectId }} />
+            <MobileLayout 
+                user={user} 
+                logout={logout} 
+                navigate={navigate} 
+                location={location} 
+                menuItems={menuItems}
+                mentorAdvice={mentorAdvice}
+            >
+                <Outlet context={{ globalSubjects, selectedSubjectId, setSelectedSubjectId, mentorAdvice }} />
             </MobileLayout>
         );
     }
@@ -677,7 +702,7 @@ const MainLayout = () => {
                                 <div className="user-avatar-container">
                                     {user?.avatarUrl
                                         ? <img
-                                            src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:8080${user.avatarUrl}`}
+                                            src={getFullImageUrl(user.avatarUrl)}
                                             alt="Avatar"
                                             className="avatar-img-main"
                                             loading="lazy"
@@ -772,6 +797,22 @@ const MainLayout = () => {
                 .notification-text { font-size: 0.82rem; color: #64748b; line-height: 1.4; margin: 4px 0 0; }
                 .cmd-hint { font-size: 0.75rem; color: #94a3b8; background: #fff; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 6px; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
                 .search-results-dropdown { position: absolute; top: calc(100% + 15px); left: 0; width: 100% !important; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); z-index: 3001; padding: 12px; max-height: 450px; overflow-y: auto; animation: dropdown-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+                /* Dashboard Mentor Card */
+                .mentor-dashboard-card {
+                    background: linear-gradient(135deg, #4f46e5 0%, #7c3AED 100%);
+                    border-radius: 20px; padding: 1.25rem;
+                    display: flex; align-items: center; gap: 1rem;
+                    color: white; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+                    box-shadow: 0 10px 20px rgba(79,70,229,0.2);
+                    border: 1px solid rgba(255,255,255,0.1);
+                }
+                .mentor-dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(79,70,229,0.3); }
+                .mentor-card-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
+                .mentor-card-body { flex: 1; }
+                .mentor-card-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; opacity: 0.8; margin-bottom: 4px; }
+                .mentor-card-text { font-size: 0.9rem; font-weight: 600; margin: 0; line-height: 1.4; font-style: italic; }
+                .mentor-card-arrow { opacity: 0.5; }
             `}</style>
         </div>
     );

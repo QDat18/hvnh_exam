@@ -103,7 +103,7 @@ supabase:
 ai:
   api:
     key: ${AI_API_KEY:}
-  nvidia:
-    url: ${AI_NVIDIA_URL:https://integrate.api.nvidia.com/v1/chat/completions}
-    model: ${AI_NVIDIA_MODEL:google/gemma-4-31b-it}
+  groq:
+    url: ${AI_GROQ_URL:https://api.groq.com/openai/v1/chat/completions}
+    model: ${AI_GROQ_MODEL:llama-3.3-70b-versatile}
 

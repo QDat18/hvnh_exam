@@ -21,3 +21,6 @@
 **/*.mp4
 **/*.pptx
 **/*.pdf
+HTTP Request.jmx
+.gitignore
+frontend/src/assets/images/ErrorAtLine1_Ảnh đội.jpg

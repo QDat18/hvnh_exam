@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { User, Mail, Shield, Building2, MapPin, Calendar, Camera } from 'lucide-react';
 import authService from '../../services/auth.service';
 import { toast } from 'react-toastify';
+import { getFullImageUrl } from '../../utils/urlUtils';
 
 const UserProfile = () => {
     const { user } = useAuth();
@@ -53,7 +54,7 @@ const UserProfile = () => {
                         >
                             {user.avatarUrl ? (
                                 <img
-                                    src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:8080${user.avatarUrl}`}
+                                    src={getFullImageUrl(user.avatarUrl)}
                                     alt="Avatar"
                                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                                 />

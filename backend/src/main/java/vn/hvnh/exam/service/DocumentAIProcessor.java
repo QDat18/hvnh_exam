@@ -121,6 +121,7 @@ public class DocumentAIProcessor {
         boolean enableAI
     ) {
         StudentDocument doc = new StudentDocument();
+        doc.setStudentDocId(UUID.randomUUID()); // Explicitly set ID before using it in filename
         doc.setStudentId(studentId);
         doc.setSubjectId(subjectId);
         doc.setDocumentTitle(file.getOriginalFilename());
@@ -141,6 +142,7 @@ public class DocumentAIProcessor {
             String filename = doc.getStudentDocId() + "_" + file.getOriginalFilename();
             Path targetPath = root.resolve(filename);
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("💾 Saved file to disk: {}", targetPath);
             
             // Set fileUrl for the frontend to call download endpoint
             doc.setFileUrl("/api/student/study-hub/documents/download/" + doc.getStudentDocId());

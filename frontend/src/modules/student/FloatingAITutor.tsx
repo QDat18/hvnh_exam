@@ -14,7 +14,7 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
     const [documents, setDocuments] = useState<any[]>([]);
     const [selectedDocId, setSelectedDocId] = useState<string>('general');
     const [messages, setMessages] = useState<{ sender: 'ai' | 'user', text: string }[]>([
-        { sender: 'ai', text: 'Chào bạn! Mình là Gia sư AI. Bạn cần hỗ trợ gì về bài học hôm nay không?' }
+        { sender: 'ai', text: 'Xin chào! Mình là iReview AI Tutor - Trợ lý học tập của Học viện Ngân hàng. Mình đã sẵn sàng hỗ trợ bạn chinh phục các bài tập và giáo trình hôm nay rồi đây! 🚀' }
     ]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -85,12 +85,45 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
                     <button onClick={() => setIsOpen(false)} className="btn btn-sm text-white border-0 hover-opacity"><X size={20} /></button>
                 </div>
 
-                {/* Chọn tài liệu */}
+                {/* Chọn tài liệu - Rigid Flexbox for stability */}
                 <div className="bg-light p-2 border-bottom">
-                    <div className="input-group input-group-sm shadow-none">
-                        <span className="input-group-text bg-white text-muted border-end-0 border-light"><FileText size={14}/></span>
-                        <select className="form-select border-start-0 border-light text-secondary fw-medium shadow-none bg-white cursor-pointer" 
-                                value={selectedDocId} onChange={(e) => setSelectedDocId(e.target.value)}>
+                    <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'row',
+                        flexWrap: 'nowrap',
+                        alignItems: 'center', 
+                        backgroundColor: 'white', 
+                        borderRadius: '8px', 
+                        border: '1px solid #dee2e6',
+                        padding: '0 12px',
+                        width: '100%',
+                        height: '42px', // Fixed height to prevent vertical expansion
+                        boxSizing: 'border-box'
+                    }}>
+                        <FileText size={18} style={{ color: '#6c757d', flexShrink: 0 }} />
+                        <select 
+                            style={{ 
+                                flexGrow: 1,
+                                border: 'none', 
+                                outline: 'none', 
+                                background: 'transparent',
+                                fontSize: '0.875rem',
+                                color: '#1a202c', // Pure dark text for visibility
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                height: '100%',
+                                appearance: 'none',
+                                backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'14\' height=\'14\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236c757d\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'m6 9 6 6 6-6\'/%3E%3C/svg%3E")',
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'right 0 center',
+                                paddingRight: '25px',
+                                marginLeft: '10px',
+                                width: '0', // Hack to allow flexbox to control width
+                                minWidth: '100%' // Ensures it fills the flex container
+                            }}
+                            value={selectedDocId} 
+                            onChange={(e) => setSelectedDocId(e.target.value)}
+                        >
                             <option value="general">🌍 Tư vấn tự do chung</option>
                             {documents.length > 0 && <option disabled>── Tài liệu học phần ──</option>}
                             {documents.map(doc => <option key={doc.studentDocId} value={doc.studentDocId}>📄 {doc.documentTitle}</option>)}
@@ -101,12 +134,28 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
                 {/* Nội dung tin nhắn */}
                 <div className="flex-grow-1 p-3 overflow-auto d-flex flex-column gap-3 custom-chat-bg">
                     {messages.map((msg, idx) => (
-                        <div key={idx} className={`d-flex ${msg.sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
-                            <div className={`p-3 p-md-3 shadow-sm ${msg.sender === 'user' ? 'bg-primary text-white custom-rounded-user' : 'bg-white border text-dark custom-rounded-ai'}`} 
-                                 style={{ maxWidth: '85%', fontSize: '0.875rem', lineHeight: '1.5' }}>{msg.text}</div>
+                        <div key={idx} className={`d-flex ${msg.sender === 'user' ? 'justify-content-end' : 'justify-content-start'} fade-in`}>
+                            <div className={`p-3 shadow-sm ${msg.sender === 'user' 
+                                ? 'bg-primary text-white custom-rounded-user' 
+                                : 'bg-white border text-dark custom-rounded-ai'}`} 
+                                 style={{ 
+                                     maxWidth: '85%', 
+                                     fontSize: '0.9rem', 
+                                     lineHeight: '1.6', 
+                                     boxShadow: msg.sender === 'user' ? '0 4px 15px rgba(13, 110, 253, 0.2)' : '0 2px 10px rgba(0,0,0,0.05)'
+                                 }}>
+                                {msg.text}
+                            </div>
                         </div>
                     ))}
-                    {isTyping && <div className="d-flex align-items-center text-muted small px-2 mt-1"><Loader2 size={14} className="me-2 spin text-primary" /> <span>AI đang suy nghĩ...</span></div>}
+                    {isTyping && (
+                        <div className="d-flex align-items-center text-muted small px-2 mt-1 typing-indicator">
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                            <span className="ms-2">iReview đang chuẩn bị câu trả lời...</span>
+                        </div>
+                    )}
                     <div ref={messagesEndRef} />
                 </div>
 
@@ -175,6 +224,34 @@ const FloatingAITutor: React.FC<FloatingAITutorProps> = ({ subjectId }) => {
                 .custom-rounded-ai { border-radius: 18px 18px 18px 0px; }
                 
                 .focus-ring-primary:focus-within { border-color: #86b7fe !important; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important; }
+
+                .fade-in {
+                    animation: fadeIn 0.3s ease-in-out forwards;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                .typing-indicator {
+                    display: flex;
+                    align-items: center;
+                }
+                .typing-dot {
+                    width: 6px;
+                    height: 6px;
+                    margin: 0 2px;
+                    background: #0d6efd;
+                    border-radius: 50%;
+                    opacity: 0.6;
+                    animation: typing 1s infinite alternate;
+                }
+                .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+                .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+                @keyframes typing {
+                    from { transform: scale(1); opacity: 0.4; }
+                    to { transform: scale(1.3); opacity: 1; }
+                }
             `}</style>
         </div>
     );

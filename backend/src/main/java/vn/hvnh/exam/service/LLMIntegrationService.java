@@ -58,8 +58,10 @@ public class LLMIntegrationService {
             // Removed chat_template_kwargs for Groq compatibility
 
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            log.info("🚀 Calling AI | Model: {} | Attempt: {}/{}", modelName, attempt, MAX_RETRIES);
+            
+            String maskedKey = apiKey != null && apiKey.length() > 8 ? apiKey.substring(0, 4) + "..." + apiKey.substring(apiKey.length() - 4) : "INVALID";
+            log.info("🚀 Calling AI | Model: {} | API Key (Masked): {} | Attempt: {}/{}", modelName, maskedKey, attempt, MAX_RETRIES);
+            log.debug("📝 Request Body: {}", objectMapper.writeValueAsString(requestBody));
 
             ResponseEntity<String> response = restTemplate.exchange(
                     apiUrl, HttpMethod.POST, requestEntity, String.class
@@ -70,8 +72,14 @@ public class LLMIntegrationService {
             
             return cleanMarkdownCodeBlocks(aiResponseText);
 
+        } catch (HttpClientErrorException.Unauthorized e) {
+            log.error("❌ Invalid API Key (401). Please check your configuration.");
+            throw new RuntimeException("API Key không hợp lệ (401). Vui lòng cấu hình AI_API_KEY chính xác.");
         } catch (HttpClientErrorException.TooManyRequests e) {
             return handleRetry(prompt, attempt, 3000 + (attempt * 2000L), "Rate limit (429)");
+        } catch (HttpClientErrorException e) {
+            log.error("❌ HTTP Error: {} | Response: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Lỗi AI Service (400/404): " + e.getResponseBodyAsString());
         } catch (RestClientException e) {
             long waitTime = BASE_RETRY_DELAY_MS * (long) Math.pow(2, attempt - 1);
             return handleRetry(prompt, attempt, waitTime, "API Error: " + e.getMessage());

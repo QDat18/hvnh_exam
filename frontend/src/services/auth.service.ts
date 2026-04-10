@@ -1,20 +1,12 @@
 import { supabase } from "./supabaseClient";
 import axios from "axios";
+import { getApiBaseUrl } from "../utils/urlUtils";
 
 interface LoginResponse {
     user: any;
     session: any;
     isFirstLogin: boolean;
 }
-
-const getApiBaseUrl = () => {
-    let url = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-    // Đảm bảo URL luôn có tiền tố /api
-    if (!url.endsWith('/api') && !url.endsWith('/api/')) {
-        url = url.endsWith('/') ? `${url}api` : `${url}/api`;
-    }
-    return url;
-};
 
 const API_BASE_URL = getApiBaseUrl();
 

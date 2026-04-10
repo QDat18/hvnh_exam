@@ -5,8 +5,12 @@ import {
     BarChart3, TrendingUp, BookOpen, Zap, Target,
     AlertCircle, CheckCircle2, Calendar, Flame,
     Brain, RefreshCw, Printer, ChevronRight, Award,
-    Activity, ShieldCheck, Sparkles
+    Activity, ShieldCheck, Sparkles, MessageSquareQuote
 } from 'lucide-react';
+import {
+    Radar, RadarChart, PolarGrid, PolarAngleAxis,
+    PolarRadiusAxis, ResponsiveContainer
+} from 'recharts';
 import LoadingOverlay from '../../components/common/LoadingOverlay';
 
 // ─── Interfaces ───
@@ -54,6 +58,7 @@ const LearningAnalyticsHub: React.FC = () => {
     const [flashcardStats, setFlashcardStats] = useState<Stats | null>(null);
     const [practiceHistory, setPracticeHistory] = useState<PracticeHistory[]>([]);
     const [competencyData, setCompetencyData] = useState<CompetencyData | null>(null);
+    const [mentorAdvice, setMentorAdvice] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -61,10 +66,11 @@ const LearningAnalyticsHub: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            const [statsRes, historyRes, compRes] = await Promise.all([
+            const [statsRes, historyRes, compRes, adviceRes] = await Promise.all([
                 studyHubApi.getDetailedStats(),
                 studyHubApi.getPracticeHistory(),
                 studyHubApi.getCompetencyAnalysis(),
+                studyHubApi.getProactiveSuggestions(),
             ]);
 
             setFlashcardStats(statsRes.data);
@@ -74,6 +80,7 @@ const LearningAnalyticsHub: React.FC = () => {
             setPracticeHistory(rawHistory);
 
             setCompetencyData(compRes.data);
+            setMentorAdvice(adviceRes.data?.advice);
         } catch (err) {
             console.error("Error fetching analytics data:", err);
             setError('Không thể tải dữ liệu thống kê. Vui lòng thử lại sau.');
@@ -109,6 +116,15 @@ const LearningAnalyticsHub: React.FC = () => {
         const sum = practiceHistory.reduce((acc, p) => acc + (p.score || 0), 0);
         return (sum / practiceHistory.length).toFixed(1);
     }, [practiceHistory]);
+
+    const radarData = useMemo(() => {
+        if (!competencyData?.subjectAnalyses) return [];
+        return competencyData.subjectAnalyses.map(s => ({
+            subject: s.subjectName.length > 15 ? s.subjectName.substring(0, 12) + '...' : s.subjectName,
+            accuracy: s.accuracy,
+            fullMark: 100
+        }));
+    }, [competencyData]);
 
     if (loading) return (
         <div className="analytics-hub-page" style={{ position: 'relative', minHeight: '80vh' }}>
@@ -152,6 +168,18 @@ const LearningAnalyticsHub: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* ── Mentor Advice Banner ── */}
+            {mentorAdvice && (
+                <div className="mentor-nudge-card">
+                    <div className="nudge-icon"><MessageSquareQuote size={20} /></div>
+                    <div className="nudge-content">
+                        <span className="nudge-label">LỜI KHUYÊN TỪ iREVIEW AI TUTOR</span>
+                        <p className="nudge-text">{mentorAdvice}</p>
+                    </div>
+                    <div className="nudge-sparkles"><Sparkles size={24} /></div>
+                </div>
+            )}
 
             {/* ── KPI Grid ── */}
             <div className="hub-kpi-grid">
@@ -213,20 +241,50 @@ const LearningAnalyticsHub: React.FC = () => {
                             </div>
 
                             <div className="subject-bars-list">
-                                {competencyData?.subjectAnalyses?.map((s, i) => (
-                                    <div className="subject-bar-item" key={i}>
-                                        <div className="subject-bar-info">
-                                            <span className="subject-bar-name">{s.subjectName}</span>
-                                            <span className="subject-bar-pct">{s.accuracy.toFixed(0)}%</span>
+                                {competencyData?.subjectAnalyses && competencyData.subjectAnalyses.length > 0 ? (
+                                    <>
+                                        {/* Radar Chart Section */}
+                                        <div className="radar-chart-container">
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                                                    <PolarGrid stroke="#e2e8f0" />
+                                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                                                    <Radar
+                                                        name="Độ chính xác"
+                                                        dataKey="accuracy"
+                                                        stroke="#4f46e5"
+                                                        fill="#4f46e5"
+                                                        fillOpacity={0.5}
+                                                    />
+                                                </RadarChart>
+                                            </ResponsiveContainer>
                                         </div>
-                                        <div className="subject-bar-track">
-                                            <div
-                                                className="subject-bar-fill"
-                                                style={{ width: `${s.accuracy}%`, background: getScoreColor(s.accuracy) }}
-                                            />
+
+                                        {/* Detailed bars */}
+                                        <div className="mt-4">
+                                            {competencyData.subjectAnalyses.map((s, i) => (
+                                                <div className="subject-bar-item" key={i}>
+                                                    <div className="subject-bar-info">
+                                                        <span className="subject-bar-name">{s.subjectName}</span>
+                                                        <span className="subject-bar-pct">{s.accuracy.toFixed(1)}%</span>
+                                                    </div>
+                                                    <div className="subject-bar-track">
+                                                        <div
+                                                            className="subject-bar-fill"
+                                                            style={{ width: `${s.accuracy}%`, background: getScoreColor(s.accuracy) }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
+                                    </>
+                                ) : (
+                                    <div className="empty-state">
+                                        <Target size={40} opacity={0.2} />
+                                        <p>Đang tổng hợp bản đồ năng lực...</p>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
 
@@ -250,7 +308,7 @@ const LearningAnalyticsHub: React.FC = () => {
                                                     <span className="h-card-meta">{h.totalQuestions || h.numQuestions} câu hỏi · {new Date(h.completedAt || h.endTime || '').toLocaleDateString('vi-VN')}</span>
                                                 </div>
                                                 <div className="h-card-score" style={{ color, background: `${color}15` }}>
-                                                    {h.score}%
+                                                    {h.score.toFixed(1)}%
                                                 </div>
                                             </div>
                                         );
@@ -339,7 +397,25 @@ const LearningAnalyticsHub: React.FC = () => {
                 }
 
                 /* Header */
-                .hub-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2.5rem; }
+                .hub-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+                
+                /* Mentor Nudge Card */
+                .mentor-nudge-card {
+                    background: white; border-radius: 24px; padding: 1.5rem 2rem;
+                    margin-bottom: 2.5rem; display: flex; align-items: center; gap: 1.5rem;
+                    border: 1px solid #E2E8F0; position: relative; overflow: hidden;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+                    border-left: 6px solid #4F46E5;
+                }
+                .nudge-icon {
+                    width: 44px; height: 44px; border-radius: 12px; background: #EEF2FF;
+                    color: #4F46E5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                }
+                .nudge-content { flex: 1; }
+                .nudge-label { font-size: 0.75rem; font-weight: 800; color: #64748B; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+                .nudge-text { font-size: 1rem; color: #1E293B; font-weight: 600; margin: 0; line-height: 1.6; }
+                .nudge-sparkles { color: #F59E0B; opacity: 0.2; }
+
                 .hub-header-left { display: flex; align-items: center; gap: 1.25rem; }
                 
                 @media (max-width: 768px) {
@@ -496,6 +572,13 @@ const LearningAnalyticsHub: React.FC = () => {
                 .subject-bar-track { height: 10px; background: #F1F5F9; border-radius: 20px; overflow: hidden; }
                 .subject-bar-fill { height: 100%; border-radius: 20px; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1); }
                 .subject-bar-pct { font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif; color: #4F46E5; }
+
+                .radar-chart-container {
+                    padding: 1rem 0;
+                    background: radial-gradient(circle at center, #f8faff 0%, transparent 70%);
+                    border-radius: 20px;
+                    margin-bottom: 1rem;
+                }
 
                 /* History Timeline */
                 .history-timeline { display: flex; flex-direction: column; gap: 0.875rem; }

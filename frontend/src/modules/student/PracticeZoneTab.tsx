@@ -239,7 +239,7 @@ const PracticeZoneTab: React.FC<PracticeZoneTabProps> = ({ subjectId }) => {
     // ==========================================
     if (step === 'loading') return (
         <div className="card border-0 shadow-sm rounded-4 p-5 text-center py-5" style={{ minHeight: '400px' }}>
-            <div className="my-auto"><div className="spinner-border text-primary border-3 mb-4" style={{ width: '3rem', height: '3rem' }}></div><h4 className="fw-bold text-primary mb-2">AI đang nhào nặn đề thi...</h4></div>
+            <div className="my-auto"><div className="spinner-border text-primary border-3 mb-4" style={{ width: '3rem', height: '3rem' }}></div><h4 className="fw-bold text-primary mb-2">AI đang tạo đề thi...</h4></div>
         </div>
     );
 

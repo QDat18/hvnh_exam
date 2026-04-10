@@ -647,9 +647,9 @@ const DocumentManagerTab: React.FC<DocumentManagerTabProps> = ({ subjectId }) =>
 
             {/* MODAL PREVIEW */}
             {previewDoc && (
-                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1050 }}>
+                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', zIndex: 1050 }}>
                     <div className="modal-dialog modal-xl modal-dialog-centered">
-                        <div className="modal-content" style={{ borderRadius: '24px', border: 'none', overflow: 'hidden' }}>
+                        <div className="modal-content" style={{ borderRadius: '24px', border: 'none', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}>
                             <div className="modal-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                                 <h5 className="modal-title fw-bold d-flex align-items-center gap-3" style={{ color: '#1e293b' }}>
                                     <FileText size={20} color="#6366f1" /> {previewDoc.documentTitle}

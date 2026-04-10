@@ -157,6 +157,8 @@ public class StudentStudyController {
             hubData.put("className", courseClass.getClassName());
             hubData.put("classCode", courseClass.getClassCode());
             hubData.put("subjectId", courseClass.getSubject().getId());
+            hubData.put("subjectName", courseClass.getSubject().getSubjectName());
+            hubData.put("subjectCode", courseClass.getSubject().getSubjectCode());
             
             User teacher = courseClass.getTeacher();
             Map<String, Object> teacherMap = new HashMap<>();
@@ -306,22 +308,36 @@ public class StudentStudyController {
             LocalDateTime fromDate = LocalDateTime.now().minusDays(days);
             List<PracticeSession> sessions = sessionRepo.findRecentSessions(studentId, fromDate);
             
-            // [TỐI ƯU HIỆU NĂNG]: Bulk lookup Subject Name tránh N+1 loop
+            // Bulk lookup Subject Names
             Set<UUID> subjectIdsToFetch = sessions.stream()
                 .map(PracticeSession::getSubjectId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
             
             Map<UUID, String> subjectNameMap = subjectRepository.findAllById(subjectIdsToFetch).stream()
                 .collect(Collectors.toMap(Subject::getId, Subject::getSubjectName));
+
+            // Bulk lookup Document Titles (Fallback)
+            Set<UUID> docIdsToFetch = sessions.stream()
+                .filter(s -> s.getSubjectId() == null && s.getStudentDocumentId() != null)
+                .map(PracticeSession::getStudentDocumentId)
+                .collect(Collectors.toSet());
+            
+            Map<UUID, String> docTitleMap = documentRepo.findAllById(docIdsToFetch).stream()
+                .collect(Collectors.toMap(vn.hvnh.exam.entity.sql.StudentDocument::getStudentDocId, vn.hvnh.exam.entity.sql.StudentDocument::getDocumentTitle));
             
             List<Map<String, Object>> history = sessions.stream()
                 .map(session -> {
                     Map<String, Object> dto = new HashMap<>();
                     dto.put("id", session.getSessionId());
                     
-                    // Lấy O(1) từ Map
-                    String subjName = subjectNameMap.getOrDefault(session.getSubjectId(), "Unknown");
-                    dto.put("subjectName", subjName);
+                    String displayName = "Tài liệu tự ôn tập";
+                    if (session.getSubjectId() != null) {
+                        displayName = subjectNameMap.getOrDefault(session.getSubjectId(), "Môn học không tên");
+                    } else if (session.getStudentDocumentId() != null) {
+                        displayName = "📄 " + docTitleMap.getOrDefault(session.getStudentDocumentId(), "Tài liệu không tên");
+                    }
+                    dto.put("subjectName", displayName);
                     
                     dto.put("score", session.getScore() != null ? session.getScore() : 0.0);
                     dto.put("totalQuestions", session.getTotalQuestions() != null ? session.getTotalQuestions() : 0);
@@ -337,6 +353,53 @@ public class StudentStudyController {
         } catch (Exception e) {
             log.error("Error getting practice history", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/proactive-suggestions")
+    public ResponseEntity<?> getProactiveSuggestions() {
+        try {
+            User currentUser = currentUserService.getCurrentUser();
+            LocalDateTime now = LocalDateTime.now();
+
+            // Nếu đã có lời khuyên và chưa quá 24h thì dùng lại (Caching logic)
+            if (currentUser.getAiMentorAdvice() != null && 
+                currentUser.getAdviceUpdatedAt() != null && 
+                currentUser.getAdviceUpdatedAt().isAfter(now.minusDays(1))) {
+                return ResponseEntity.ok(Map.of("advice", currentUser.getAiMentorAdvice()));
+            }
+
+            // Lấy dữ liệu phân tích để AI làm cơ sở (Top 3 yếu)
+            LocalDateTime thirtyDaysAgo = now.minusDays(30);
+            List<PracticeSession> recentSessions = sessionRepo.findRecentSessions(currentUser.getId(), thirtyDaysAgo);
+            
+            if (recentSessions.isEmpty()) {
+                return ResponseEntity.ok(Map.of("advice", "Bạn chưa có nhiều hoạt động luyện tập gần đây. Hãy bắt đầu ôn tập để iReview có thể đưa ra những lời khuyên hữu ích nhé! 📚"));
+            }
+
+            // Phân tích sơ bộ để AI có context
+            double avgScore = recentSessions.stream().mapToDouble(s -> s.getScore() != null ? s.getScore() : 0).average().orElse(0);
+            
+            String prompt = String.format(
+                "Bạn là 'iReview AI Tutor'. Phân tích dữ liệu học tập của sinh viên %s:\n" +
+                "- Điểm trung bình gần đây: %.1f%%\n" +
+                "- Số buổi luyện tập: %d\n" +
+                "Yêu cầu: Hãy viết một lời khuyên ngắn gọn (tối đa 2 câu), mang tính cá nhân hóa cao, động viên và gợi ý hướng ôn tập tiếp theo. " +
+                "Trả lời bằng tiếng Việt, thân thiện, chuyên nghiệp.",
+                currentUser.getFullName(), avgScore, recentSessions.size()
+            );
+
+            String advice = llmIntegrationService.callAI(prompt);
+            
+            // Lưu cache vào database
+            currentUser.setAiMentorAdvice(advice);
+            currentUser.setAdviceUpdatedAt(now);
+            userRepository.save(currentUser);
+
+            return ResponseEntity.ok(Map.of("advice", advice));
+        } catch (Exception e) {
+            log.error("Error generating proactive advice", e);
+            return ResponseEntity.ok(Map.of("advice", "iReview đang bận phân tích dữ liệu của bạn, hãy quay lại sau nhé! ✨"));
         }
     }
 
@@ -853,8 +916,13 @@ public class StudentStudyController {
             });
             
             analysisPrompt.append("\nHãy cho 3 điểm mạnh, 3 điểm yếu và lộ trình cải thiện ngắn gọn.");
-            
-            String aiAnalysis = llmIntegrationService.callAI(analysisPrompt.toString());
+
+            String aiAnalysis;
+            if (countValidSubjects == 0 && totalFlashcards == 0 && totalQuestionsAnswered == 0) {
+                aiAnalysis = "Hiện chưa có đủ dữ liệu học tập để phân tích. Hãy bắt đầu học và làm bài tập để nhận được phân tích từ AI!";
+            } else {
+                aiAnalysis = llmIntegrationService.callAI(analysisPrompt.toString());
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("studentName", student.getFullName());
@@ -921,11 +989,26 @@ public class StudentStudyController {
             @PathVariable UUID docId,
             @RequestBody Map<String, String> request) {
         String userMessage = request.get("message");
-        vn.hvnh.exam.entity.sql.StudentDocument doc = documentRepo.findById(docId).orElseThrow(() -> new RuntimeException("Document not found"));
+        vn.hvnh.exam.entity.sql.StudentDocument doc = documentRepo.findById(docId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        // Lấy nội dung đã trích xuất (RAG - Retrieval Augmented Generation)
+        String context = doc.getExtractedText();
+        if (context == null || context.trim().isEmpty()) {
+            context = "Nội dung tài liệu đang được xử lý hoặc để trống.";
+        } else if (context.length() > 15000) {
+            // Giới hạn để không bị tràn Token của Groq (Llama 3.3 hỗ trợ lớn nhưng nên súc tích)
+            context = context.substring(0, 15000) + "... [Nội dung quá dài, đã được lược bớt]";
+        }
+
         String prompt = String.format(
-                "Bạn là một Gia sư Đại học xuất sắc. Sinh viên đang học tài liệu mang tên '%s'. Sinh viên hỏi bạn: '%s'. Hãy trả lời bằng tiếng Việt, ngắn gọn, súc tích, dễ hiểu. Nếu có thể hãy cho ví dụ minh họa.",
-                doc.getDocumentTitle(), userMessage
+                "Bạn là một Gia sư Đại học xuất sắc. Sinh viên đang học tài liệu mang tên: '%s'.\n" +
+                "NỘI DUNG TÀI LIỆU NHƯ SAU:\n\"\"\"\n%s\n\"\"\"\n\n" +
+                "Dựa trên nội dung tài liệu trên, hãy trả lời câu hỏi của sinh viên: '%s'.\n" +
+                "YÊU CẦU: Trả lời bằng tiếng Việt, chuyên nghiệp, súc tích, dễ hiểu. Nếu câu hỏi không liên quan đến tài liệu, hãy nhắc nhở nhẹ nhàng và trả lời dựa trên kiến thức chung.",
+                doc.getDocumentTitle(), context, userMessage
         );
+
         String aiResponse = llmIntegrationService.callAI(prompt);
         return ResponseEntity.ok(Map.of("answer", aiResponse));
     }
@@ -1018,9 +1101,11 @@ public class StudentStudyController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Tin nhắn không được để trống"));
             }
             String prompt = String.format(
-                "Bạn là một Gia sư AI thông minh, nhiệt tình và tâm lý của Học viện Ngân hàng. " +
-                "Nhiệm vụ của bạn là hướng dẫn sinh viên, tư vấn phương pháp học tập. " +
-                "Hãy trả lời bằng tiếng Việt thật tự nhiên, ngắn gọn. Câu hỏi: '%s'", message
+                "Bạn là 'iReview AI Tutor' - Trợ lý học tập thông minh, chuyên nghiệp và tận tâm của Học viện Ngân hàng (HVNH).\n" +
+                "Nhiệm vụ: Tư vấn phương pháp học tập, giải đáp thắc mắc về kiến thức đại học, động viên sinh viên.\n" +
+                "PHONG CÁCH: Trí tuệ, đáng tin cậy nhưng thân thiện.\n" +
+                "Ngôn ngữ: Tiếng Việt.\n" +
+                "Câu hỏi từ sinh viên: '%s'", message
             );
             String aiResponse = llmIntegrationService.callAI(prompt);
             return ResponseEntity.ok(Map.of("answer", aiResponse));
@@ -1451,16 +1536,59 @@ public class StudentStudyController {
             if (docOpt.isEmpty()) return ResponseEntity.notFound().build();
             
             StudentDocument doc = docOpt.get();
+            Resource resource = null;
+            
+            // Strategy 1: New path - uploads/student-documents/{docId}_{title}
             String filename = doc.getStudentDocId() + "_" + doc.getDocumentTitle();
             Path filePath = Paths.get("uploads/student-documents").resolve(filename);
+            Resource candidate = new UrlResource(filePath.toUri());
+            if (candidate.exists()) {
+                resource = candidate;
+            }
             
-            Resource resource = new UrlResource(filePath.toUri());
-            if (!resource.exists()) {
+            // Strategy 2: Old path - uploads/{docId}.{ext}
+            if (resource == null) {
+                String ext = doc.getFileType() != null ? doc.getFileType().toLowerCase() : "pdf";
+                filePath = Paths.get("uploads").resolve(doc.getStudentDocId() + "." + ext);
+                candidate = new UrlResource(filePath.toUri());
+                if (candidate.exists()) {
+                    resource = candidate;
+                }
+            }
+            
+            // Strategy 3: Scan uploads/ for any file starting with the docId
+            if (resource == null) {
+                Path uploadsDir = Paths.get("uploads");
+                if (Files.exists(uploadsDir)) {
+                    try (var stream = Files.list(uploadsDir)) {
+                        Optional<Path> match = stream
+                            .filter(p -> p.getFileName().toString().startsWith(doc.getStudentDocId().toString()))
+                            .findFirst();
+                        if (match.isPresent()) {
+                            resource = new UrlResource(match.get().toUri());
+                        }
+                    }
+                }
+            }
+
+            // Strategy 4: Fallback for 'null_' prefix bug - uploads/student-documents/null_{title}
+            if (resource == null) {
+                String nullFilename = "null_" + doc.getDocumentTitle();
+                filePath = Paths.get("uploads/student-documents").resolve(nullFilename);
+                candidate = new UrlResource(filePath.toUri());
+                if (candidate.exists()) {
+                    resource = candidate;
+                    log.info("🩹 recovered file using null_ prefix strategy for doc: {}", docId);
+                }
+            }
+            
+            if (resource == null || !resource.exists()) {
+                log.warn("File not found for document: {} (title: {})", docId, doc.getDocumentTitle());
                 return ResponseEntity.notFound().build();
             }
 
             String contentType = "application/octet-stream";
-            if (doc.getFileType().equalsIgnoreCase("pdf")) contentType = "application/pdf";
+            if (doc.getFileType() != null && doc.getFileType().equalsIgnoreCase("pdf")) contentType = "application/pdf";
             
             return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))

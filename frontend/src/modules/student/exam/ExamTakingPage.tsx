@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, Send, CheckCircle, AlertTriangle, Eye, ArrowLeft, EyeOff, FileText, Maximize, LayoutGrid } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { studyHubApi } from '../../../services/studyHubApi';
+import { getFullImageUrl } from '../../../utils/urlUtils';
 
 const ExamTakingPage: React.FC = () => {
     const { attemptId } = useParams<{ attemptId: string }>();
@@ -35,9 +36,7 @@ const ExamTakingPage: React.FC = () => {
     // 2. HÀM TIỆN ÍCH & GỌI API
     // ==========================================
     const getFullFileUrl = (url: string) => {
-        if (!url) return '';
-        if (url.startsWith('http://') || url.startsWith('https://')) return url;
-        return `http://localhost:8080${url}`;
+        return getFullImageUrl(url);
     };
 
     useEffect(() => {

@@ -217,6 +217,7 @@ export const studyHubApi = {
         axiosClient.get('/student/study-hub/competency-analysis'),
 
     getDocumentSubjects: () => axiosClient.get('/student/study-hub/documents/subjects'),
+    getProactiveSuggestions: () => axiosClient.get('/student/study-hub/proactive-suggestions'),
     downloadDocument: (docId: string): Promise<AxiosResponse<Blob>> => {
         return axiosClient.get(`/student/study-hub/documents/download/${docId}`, {
             responseType: 'blob'
